@@ -17,7 +17,7 @@ git checkout master
 rm LATEST_TAG.txt
 echo $VERSION >> LATEST_TAG.txt
 git add LATEST_TAG.txt
-echo "git commit -m \"Tagged release $VERSION\""
-echo "git push origin master"
-echo "git tag -a $VERSION -m \"Release $VERSION\""
-echo "git push --tags"
+git commit -m \"Tagged release $VERSION\"
+git push origin master
+git tag -a $VERSION -m \"Release $VERSION\"
+git push --tags
