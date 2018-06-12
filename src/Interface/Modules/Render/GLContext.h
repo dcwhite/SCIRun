@@ -48,13 +48,10 @@ namespace Gui {
 class SCISHARE GLContext
 {
 public:
-  GLContext(QOpenGLWidget* glWidget);
+  explicit GLContext(QOpenGLWidget* glWidget);
 
-  /// Mandatory override from Context.
-  void makeCurrent();
-
-  /// Mandatory override from Context.
-  void swapBuffers();
+  virtual void makeCurrent();
+  virtual void swapBuffers();
 
 private:
 
