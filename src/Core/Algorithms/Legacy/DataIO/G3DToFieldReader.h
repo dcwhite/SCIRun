@@ -6,7 +6,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-
+   
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -26,70 +26,40 @@
    DEALINGS IN THE SOFTWARE.
 */
 
-#include <gtest/gtest.h>
-#include <Core/Containers/Array2.h>
 
-using namespace SCIRun;
+#ifndef CORE_ALGORITHMS_DATAIO_G3DTOFIELDREADER_H
+#define CORE_ALGORITHMS_DATAIO_G3DTOFIELDREADER_H 1
 
-namespace
+#include <Core/Algorithms/Base/AlgorithmBase.h>
+#include <Core/Algorithms/Legacy/DataIO/share.h>
+
+/*
+ * Implementation notes:
+ *
+ * This reader does not read textures, just geometry, since
+ * ImageVis3D writes out obj files that only contain geometry.
+ * The intended use of this reader is for reading ImageVis3D obj files.
+ */
+
+namespace SCIRun
 {
-  template <typename Array>
-  void print(std::ostream& os, const Array& A)
+  namespace Core
   {
-    os << "[";
-    for (auto i = A.begin(); i != A.end(); ++i)
+    namespace Algorithms
     {
-      print(os, *i);
-      if (i + 1 != A.end())
-        os << ',';
+      class SCISHARE G3DToFieldReader : public AlgorithmBase
+      {
+      public:    
+        explicit G3DToFieldReader(Logging::LoggerHandle log);
+        bool read(const std::string& filename, FieldHandle& field_handle);
+        bool write(const std::string& filename, const FieldHandle& field);
+        virtual AlgorithmOutput run(const AlgorithmInput&) const override { throw "not implemented"; }
+
+      private:
+        Logging::LoggerHandle log_;
+      };
     }
-    os << "]";
-  }
-
-  template<>
-  void print<double>(std::ostream& os, const double& x)
-  {
-    os << x;
   }
 }
 
-TEST(Array2Test, CanResize)
-{
-  Array2<double> a;
-  EXPECT_EQ(0, a.dim1());
-  EXPECT_EQ(0, a.dim2());
-  EXPECT_EQ(0, a.size());
-  a.resize(2, 3);
-  EXPECT_EQ(2, a.dim1());
-  EXPECT_EQ(3, a.dim2());
-  EXPECT_EQ(6, a.size());
-}
-
-TEST(Array2Test, CanAccessUnderlyingStorageWithSingleIndexer)
-{
-  Array2<double> a;
-  auto& aImpl(a.getImpl());
-  a.resize(2, 3);
-  for (int i = 0; i < 2; ++i)
-    for (int j = 0; j < 3; ++j)
-      aImpl[i][j] = 1 + i + j;
-
-  print(std::cout, aImpl);
-  std::cout << std::endl;
-
-  auto b(a);
-  auto& bImpl(b.getImpl());
-
-  std::for_each(bImpl.origin(), bImpl.origin() + b.size(), [](double& d) {d *= 0.5;});
-
-  print(std::cout, bImpl);
-  std::cout << std::endl;
-
-  for (int k = 0; k < a.size(); ++k)
-  {
-    double q1 = a[k];
-    double q2 = b[k];
-    double q = q1 / q2;
-    EXPECT_EQ(2.0, q);
-  }
-}
+#endif // CORE_ALGORITHMS_DATAIO_G3DTOFIELDREADER_H

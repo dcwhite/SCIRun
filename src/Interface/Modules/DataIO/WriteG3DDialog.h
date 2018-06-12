@@ -6,7 +6,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-
+   License for the specific language governing rights and limitations under
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -26,70 +26,39 @@
    DEALINGS IN THE SOFTWARE.
 */
 
-#include <gtest/gtest.h>
-#include <Core/Containers/Array2.h>
+#ifndef INTERFACE_MODULES_WRITE_G3D_H
+#define INTERFACE_MODULES_WRITE_G3D_H
 
-using namespace SCIRun;
+#include "Interface/Modules/DataIO/ui_WriteG3DDialog.h"
+#include <boost/shared_ptr.hpp>
+#include <Interface/Modules/Base/ModuleDialogGeneric.h>
+#include <Interface/Modules/Base/RemembersFileDialogDirectory.h>
+#include <Interface/Modules/DataIO/share.h>
 
-namespace
+namespace SCIRun {
+namespace Gui {
+
+class SCISHARE WriteG3DDialog : public ModuleDialogGeneric,
+  public Ui::WriteG3DDialog, public RemembersFileDialogDirectory
 {
-  template <typename Array>
-  void print(std::ostream& os, const Array& A)
-  {
-    os << "[";
-    for (auto i = A.begin(); i != A.end(); ++i)
-    {
-      print(os, *i);
-      if (i + 1 != A.end())
-        os << ',';
-    }
-    os << "]";
-  }
+	Q_OBJECT
 
-  template<>
-  void print<double>(std::ostream& os, const double& x)
-  {
-    os << x;
-  }
+public:
+  WriteG3DDialog(const std::string& name,
+    SCIRun::Dataflow::Networks::ModuleStateHandle state,
+    QWidget* parent = 0);
+protected:
+  virtual void pullSpecial() override;
+
+private Q_SLOTS:
+  void pushFileNameToState();
+  void saveFile();
+  void assignDefaultColor();
+private:
+  QColor defaultColor_;
+};
+
+}
 }
 
-TEST(Array2Test, CanResize)
-{
-  Array2<double> a;
-  EXPECT_EQ(0, a.dim1());
-  EXPECT_EQ(0, a.dim2());
-  EXPECT_EQ(0, a.size());
-  a.resize(2, 3);
-  EXPECT_EQ(2, a.dim1());
-  EXPECT_EQ(3, a.dim2());
-  EXPECT_EQ(6, a.size());
-}
-
-TEST(Array2Test, CanAccessUnderlyingStorageWithSingleIndexer)
-{
-  Array2<double> a;
-  auto& aImpl(a.getImpl());
-  a.resize(2, 3);
-  for (int i = 0; i < 2; ++i)
-    for (int j = 0; j < 3; ++j)
-      aImpl[i][j] = 1 + i + j;
-
-  print(std::cout, aImpl);
-  std::cout << std::endl;
-
-  auto b(a);
-  auto& bImpl(b.getImpl());
-
-  std::for_each(bImpl.origin(), bImpl.origin() + b.size(), [](double& d) {d *= 0.5;});
-
-  print(std::cout, bImpl);
-  std::cout << std::endl;
-
-  for (int k = 0; k < a.size(); ++k)
-  {
-    double q1 = a[k];
-    double q2 = b[k];
-    double q = q1 / q2;
-    EXPECT_EQ(2.0, q);
-  }
-}
+#endif
