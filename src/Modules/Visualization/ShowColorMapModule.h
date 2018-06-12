@@ -29,7 +29,7 @@
 #ifndef MODULES_VISUALIZATION_SHOWCOLORMAPMODULE_H
 #define MODULES_VISUALIZATION_SHOWCOLORMAPMODULE_H
 
-#include <Dataflow/Network/Module.h>
+#include <Dataflow/Network/GeometryGeneratingModule.h>
 #include <Core/Datatypes/Geometry.h>
 #include <Modules/Visualization/TextBuilder.h>
 #include <Modules/Visualization/share.h>
@@ -38,13 +38,13 @@ namespace SCIRun {
   namespace Modules {
     namespace Visualization {
 
-      class SCISHARE ShowColorMapModule : public SCIRun::Dataflow::Networks::GeometryGeneratingModule,
+      class SCISHARE ShowColorMap : public SCIRun::Dataflow::Networks::GeometryGeneratingModule,
         public Has1InputPort<ColorMapPortTag>,
         public Has1OutputPort<GeometryPortTag>
       {
       public:
-        ShowColorMapModule();
-        virtual void execute() override;
+        ShowColorMap();
+        void execute() override;
         Core::Datatypes::GeometryBaseHandle buildGeometryObject(Core::Datatypes::ColorMapHandle cm,
           Dataflow::Networks::ModuleStateHandle state,
           const std::string& id);
@@ -64,9 +64,10 @@ namespace SCIRun {
         static const Core::Algorithms::AlgorithmParameterName XTranslation;
         static const Core::Algorithms::AlgorithmParameterName YTranslation;
 
-        virtual void setStateDefaults() override;
+        void setStateDefaults() override;
         INPUT_PORT(0, ColorMapObject, ColorMap);
         OUTPUT_PORT(0, GeometryOutput, GeometryObject);
+        MODULE_TRAITS_AND_INFO(ModuleHasUI)
 
       private:
         TextBuilder textBuilder_;

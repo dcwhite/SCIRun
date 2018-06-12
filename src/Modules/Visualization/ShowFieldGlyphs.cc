@@ -52,7 +52,7 @@ using namespace Geometry;
 using namespace Graphics;
 using namespace Graphics::Datatypes;
 
-const ModuleLookupInfo ShowFieldGlyphs::staticInfo_("ShowFieldGlyphs", "Visualization", "SCIRun");
+MODULE_INFO_DEF(ShowFieldGlyphs, Visualization, SCIRun)
 
 namespace SCIRun {
   namespace Modules {
@@ -247,7 +247,7 @@ GeometryHandle GlyphBuilder::buildGeometryObject(
   bool showScalars = state->getValue(ShowFieldGlyphs::ShowScalars).toBool();
   bool showTensors = state->getValue(ShowFieldGlyphs::ShowTensors).toBool();
 
-  GeometryHandle geom(new GeometryObjectSpire(idgen, "EntireGlyphField", true));
+  auto geom(boost::make_shared<GeometryObjectSpire>(idgen, "EntireGlyphField", true));
 
   FieldInformation finfo(field);
 
@@ -308,7 +308,7 @@ void GlyphBuilder::renderVectors(
   VMesh*  mesh = field->vmesh();
 
   ColorScheme colorScheme = ColorScheme::COLOR_UNIFORM;
-  ColorRGB node_color;  
+  ColorRGB node_color;
 
   if (fld->basis_order() < 0 || renState.get(RenderState::USE_DEFAULT_COLOR))
   {
@@ -338,11 +338,11 @@ void GlyphBuilder::renderVectors(
   double resolution = state->getValue(ShowFieldGlyphs::VectorsResolution).toInt();
   double secondaryScalar = 0.25; // to be replaced with data from secondary field.
   if (scale < 0) scale = 1.0;
-  if (resolution < 3) resolution = 5;  
-  
+  if (resolution < 3) resolution = 5;
+
   GlyphGeom glyphs;
   auto facade(field->mesh()->getFacade());
-  
+
   //Temporary fix for cloud field data until after IBBM
   bool done = false;
   // Render cell data
@@ -409,6 +409,8 @@ void GlyphBuilder::renderVectors(
       done = true;
     }
   }
+
+
 
   // Render linear data
   if (!done)
@@ -494,13 +496,13 @@ void GlyphBuilder::renderVectors(
       }
     }
   }
- 
+
   std::stringstream ss;
   ss << renState.mGlyphType << resolution << scale << static_cast<int>(colorScheme);
 
   std::string uniqueNodeID = id + "vector_glyphs" + ss.str();
 
-  glyphs.buildObject(geom, uniqueNodeID, renState.get(RenderState::USE_TRANSPARENT_EDGES),
+  glyphs.buildObject(*geom, uniqueNodeID, renState.get(RenderState::USE_TRANSPARENT_EDGES),
     state->getValue(ShowFieldGlyphs::VectorsTransparencyValue).toDouble(), colorScheme, renState, primIn, mesh->get_bounding_box());
 }
 
@@ -540,9 +542,9 @@ void GlyphBuilder::renderScalars(
   double resolution = state->getValue(ShowFieldGlyphs::ScalarsResolution).toInt();
   if (scale < 0) scale = 1.0;
   if (resolution < 3) resolution = 5;
-    
+
   bool usePoints = renState.mGlyphType == RenderState::GlyphType::POINT_GLYPH;
-   
+
   SpireIBO::PRIMITIVE primIn = SpireIBO::PRIMITIVE::TRIANGLES;;
   // Use Points
   if (usePoints)
@@ -662,7 +664,7 @@ void GlyphBuilder::renderScalars(
 
   std::string uniqueNodeID = id + "scalar_glyphs" + ss.str();
 
-  glyphs.buildObject(geom, uniqueNodeID, renState.get(RenderState::USE_TRANSPARENT_NODES),
+  glyphs.buildObject(*geom, uniqueNodeID, renState.get(RenderState::USE_TRANSPARENT_NODES),
     state->getValue(ShowFieldGlyphs::ScalarsTransparencyValue).toDouble(), colorScheme, renState, primIn, mesh->get_bounding_box());
 }
 
@@ -707,9 +709,9 @@ void GlyphBuilder::renderTensors(
   ss << renState.mGlyphType << resolution << radius << static_cast<int>(colorScheme);
 
   std::string uniqueNodeID = id + "tensor_glyphs" + ss.str();
-  
+
   SpireIBO::PRIMITIVE primIn = SpireIBO::PRIMITIVE::TRIANGLES;;
- 
+
   GlyphGeom glyphs;
   auto facade(field->mesh()->getFacade());
   // Render linear data
@@ -735,7 +737,7 @@ void GlyphBuilder::renderTensors(
         {
           Vector colorVector = t.get_eigenvector1().normal();
           node_color = ColorRGB(std::abs(colorVector.x()), std::abs(colorVector.y()), std::abs(colorVector.z()));
-        }        
+        }
       }
       switch (renState.mGlyphType)
       {
@@ -746,7 +748,7 @@ void GlyphBuilder::renderTensors(
         glyphs.addSphere(p, radius, resolution, node_color);
         break;
       default:
-        
+
         break;
       }
     }
@@ -785,13 +787,13 @@ void GlyphBuilder::renderTensors(
         glyphs.addSphere(p, radius, resolution, node_color);
         break;
       default:
-        
+
         break;
       }
     }
   }
 
-  glyphs.buildObject(geom, uniqueNodeID, renState.get(RenderState::USE_TRANSPARENCY),
+  glyphs.buildObject(*geom, uniqueNodeID, renState.get(RenderState::USE_TRANSPARENCY),
     state->getValue(ShowFieldGlyphs::TensorsTransparencyValue).toDouble(), colorScheme, renState, primIn, mesh->get_bounding_box());
 }
 
@@ -804,7 +806,7 @@ RenderState GlyphBuilder::getVectorsRenderState(
   bool useColorMap = state->getValue(ShowFieldGlyphs::VectorsColoring).toInt() == 1;
   bool rgbConversion = state->getValue(ShowFieldGlyphs::VectorsColoring).toInt() == 2;
   renState.set(RenderState::USE_NORMALS, true);
-  
+
   renState.set(RenderState::IS_ON, state->getValue(ShowFieldGlyphs::ShowVectors).toBool());
   renState.set(RenderState::USE_TRANSPARENT_EDGES, state->getValue(ShowFieldGlyphs::VectorsTransparency).toBool());
 
@@ -846,7 +848,7 @@ RenderState GlyphBuilder::getVectorsRenderState(
                   ColorRGB(renState.defaultColor.r() / 255.,
                            renState.defaultColor.g() / 255.,
                            renState.defaultColor.b() / 255.) : renState.defaultColor;
-  
+
   if (colorMap && useColorMap)
   {
     renState.set(RenderState::USE_COLORMAP, true);

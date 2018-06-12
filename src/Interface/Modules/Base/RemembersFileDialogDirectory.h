@@ -29,8 +29,14 @@
 #ifndef INTERFACE_APPLICATION_REMEMBERSFILEDIALOGDIRECTORY_H
 #define INTERFACE_APPLICATION_REMEMBERSFILEDIALOGDIRECTORY_H
 
-#include <QDir>
+#include <QString>
+#ifndef Q_MOC_RUN
+#include <Dataflow/Network/ModuleStateInterface.h>
+#include <functional>
+#endif
 #include <Interface/Modules/Base/share.h>
+
+class QLineEdit;
 
 namespace SCIRun {
 namespace Gui {
@@ -40,17 +46,14 @@ namespace Gui {
   public:
     static void setStartingDir(const QString& dir);
   protected:
-    QString dialogDirectory() const
-    {
-      return currentDirectory_;
-    }
-    void updateRecentFile(const QString& recentFile)
-    {
-      currentDirectory_ = QDir(recentFile).absolutePath();
-    }
+    QString dialogDirectory();
+    void updateRecentFile(const QString& recentFile);
+    QString pullFilename(SCIRun::Dataflow::Networks::ModuleStateHandle state, QLineEdit* fileNameLineEdit, std::function<std::string(const std::string&)> filterFromFiletype);
     QString selectedFilter_;
   private:
-    static QString currentDirectory_;
+    QString currentDirectory_;
+    static QString startingDirectory_;
+    static QString lastUsedDirectory_;
   };
 
 }}

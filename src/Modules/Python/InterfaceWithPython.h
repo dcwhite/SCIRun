@@ -70,23 +70,25 @@ namespace SCIRun
         InterfaceWithPython();
         virtual void execute() override;
         virtual void setStateDefaults() override;
-        virtual bool hasDynamicPorts() const override { return true; }
+        HAS_DYNAMIC_PORTS
         INPUT_PORT_DYNAMIC(0, InputMatrix, Matrix);
-        INPUT_PORT_DYNAMIC(1, InputField, LegacyField);
+        INPUT_PORT_DYNAMIC(1, InputField, Field);
         INPUT_PORT_DYNAMIC(2, InputString, String);
         OUTPUT_PORT(0, PythonMatrix1, Matrix);
         OUTPUT_PORT(1, PythonMatrix2, Matrix);
         OUTPUT_PORT(2, PythonMatrix3, Matrix);
-        OUTPUT_PORT(3, PythonField1, LegacyField);
-        OUTPUT_PORT(4, PythonField2, LegacyField);
-        OUTPUT_PORT(5, PythonField3, LegacyField);
+        OUTPUT_PORT(3, PythonField1, Field);
+        OUTPUT_PORT(4, PythonField2, Field);
+        OUTPUT_PORT(5, PythonField3, Field);
         OUTPUT_PORT(6, PythonString1, String);
         OUTPUT_PORT(7, PythonString2, String);
         OUTPUT_PORT(8, PythonString3, String);
 
-        static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
         static std::vector<Core::Algorithms::AlgorithmParameterName> inputNameParameters();
         static std::vector<Core::Algorithms::AlgorithmParameterName> outputNameParameters();
+
+        MODULE_TRAITS_AND_INFO(ModuleHasUI)
+        NEW_HELP_WEBPAGE_ONLY
       private:
         static Core::Thread::Mutex lock_;
         std::string convertInputSyntax(const std::string& code) const;

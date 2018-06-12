@@ -38,17 +38,19 @@ namespace Math {
 
   class SCISHARE ConvertRealToComplexMatrix : public Dataflow::Networks::Module,
     public Has2InputPorts<MatrixPortTag, MatrixPortTag>,
-    public Has1OutputPort<ComplexDenseMatrixPortTag>
+    public Has1OutputPort<ComplexMatrixPortTag>
   {
   public:
     ConvertRealToComplexMatrix();
-    virtual void execute();
-    virtual void setStateDefaults() {};
-    static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+    virtual void execute() override;
+    virtual void setStateDefaults() override {}
 
     INPUT_PORT(0, RealPartMatrix, Matrix);
     INPUT_PORT(1, ComplexPartMatrix, Matrix);
-    OUTPUT_PORT(0, Output, ComplexDenseMatrix);
+    OUTPUT_PORT(0, Output, ComplexMatrix);
+
+    MODULE_TRAITS_AND_INFO(NoAlgoOrUI)
+    NEW_HELP_WEBPAGE_ONLY
   };
 }}}
 

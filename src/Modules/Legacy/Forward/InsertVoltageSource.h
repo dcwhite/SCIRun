@@ -1,4 +1,4 @@
- 
+
 /*
    For more information, please see: http://software.sci.utah.edu
 
@@ -7,7 +7,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -43,15 +43,17 @@ namespace SCIRun {
       {
       public:
         InsertVoltageSource();
-        virtual void setStateDefaults();
-        virtual void execute();
+        void setStateDefaults() override;
+        void execute() override;
 
-        INPUT_PORT(0, InputFEMesh, LegacyField);
-        INPUT_PORT(1, VoltageSource, LegacyField);
-        OUTPUT_PORT(0, OutputFEMesh, LegacyField);
+        INPUT_PORT(0, InputFEMesh, Field);
+        INPUT_PORT(1, VoltageSource, Field);
+        OUTPUT_PORT(0, OutputFEMesh, Field);
         OUTPUT_PORT(1, OutputDirichletMatrix, DenseMatrix);
 
-        static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+        LEGACY_BIOPSE_MODULE
+
+        MODULE_TRAITS_AND_INFO(ModuleHasUI)
       };
 
     }

@@ -32,7 +32,7 @@
 
 using namespace SCIRun::Gui;
 using namespace SCIRun::Dataflow::Networks;
-using namespace SCIRun::Modules::Math;
+using namespace SCIRun::Modules;
 
 CreateMatrixDialog::CreateMatrixDialog(const std::string& name, ModuleStateHandle state,
   QWidget* parent /* = 0 */)
@@ -46,13 +46,30 @@ CreateMatrixDialog::CreateMatrixDialog(const std::string& name, ModuleStateHandl
   connect(matrixTextEdit_, SIGNAL(textChanged()), this, SLOT(editBoxUnsaved()));
 }
 
+void CreateMatrixDialog::hideEvent(QHideEvent* event)
+{
+  editCheckBox_->setChecked(false);
+}
+
+void CreateMatrixDialog::moduleExecuted()
+{
+  remindAboutUnsavedMatrix();
+}
+
+void CreateMatrixDialog::remindAboutUnsavedMatrix()
+{
+  if (editCheckBox_->isChecked() && editCheckBox_->text().contains("changed"))
+    QMessageBox::information(nullptr, "Matrix input unsaved: " + windowTitle(),
+      windowTitle() + "\nMatrix is edited but not saved--did you mean to click the save checkbox?");
+}
+
 void CreateMatrixDialog::pushMatrixToState(int state)
 {
   if (!pulling_)
   {
     if (0 == state) // matrix is done editing
     {
-      state_->setValue(CreateMatrixModule::TextEntry, matrixTextEdit_->toPlainText().toStdString());
+      state_->setValue(Core::Algorithms::Math::Parameters::TextEntry, matrixTextEdit_->toPlainText().toStdString());
       editBoxSaved();
     }
   }
@@ -61,7 +78,7 @@ void CreateMatrixDialog::pushMatrixToState(int state)
 void CreateMatrixDialog::pullSpecial()
 {
   Pulling p(this);
-  matrixTextEdit_->setPlainText(QString::fromStdString(state_->getValue(CreateMatrixModule::TextEntry).toString()));
+  matrixTextEdit_->setPlainText(QString::fromStdString(state_->getValue(Core::Algorithms::Math::Parameters::TextEntry).toString()));
   if (firstPull_)
     editBoxSaved();
 

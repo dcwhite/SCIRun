@@ -55,6 +55,7 @@ SET(Modules_Legacy_Fields_HEADERS
   ConvertMatricesToMesh.h
   ConvertQuadSurfToTriSurf.h
   ConvertMeshToPointCloud.h
+  ConvertMeshToUnstructuredMesh.h
   AlignMeshBoundingBoxes.h
   SetFieldNodes.h
   SetFieldData.h
@@ -84,6 +85,9 @@ SET(Modules_Legacy_Fields_HEADERS
   GeneratePointSamplesFromField.h
   GeneratePointSamplesFromFieldOrWidget.h
   TransformMeshWithTransform.h
+  GetMeshQualityField.h
+  RemoveUnusedNodes.h
+  CleanupTetMesh.h
 )
 
 SET(Modules_Legacy_Fields_SRCS
@@ -98,15 +102,15 @@ SET(Modules_Legacy_Fields_SRCS
   RegisterWithCorrespondences.cc
   #SmoothVecFieldMedian.cc
   SetFieldDataToConstantValue.cc
-  #RemoveUnusedNodes.cc
+  RemoveUnusedNodes.cc
   MapFieldDataOntoNodes.cc
   MapFieldDataOntoElems.cc
-  #CleanupTetMesh.cc
+  CleanupTetMesh.cc
   #MatchDomainLabels.cc
   SplitFieldByDomain.cc
   AlignMeshBoundingBoxes.cc
   ProjectPointsOntoMesh.cc
-  #GetMeshQualityField.cc
+  GetMeshQualityField.cc
   #ApplyFilterToFieldData.cc
   ApplyMappingMatrix.cc
   #CalculateNodeNormals.cc
@@ -164,7 +168,7 @@ SET(Modules_Legacy_Fields_SRCS
   SetFieldOrMeshStringProperty.cc
   ConvertMeshToPointCloud.cc
   #ConvertMeshToIrregularMesh.cc
-  #ConvertMeshToUnstructuredMesh.cc
+  ConvertMeshToUnstructuredMesh.cc
   CalculateFieldData5.cc
   #CalculateFieldDataMetric.cc
   #CalculateMeshNodes.cc
@@ -225,7 +229,7 @@ TARGET_LINK_LIBRARIES(Modules_Legacy_Fields
   Core_Math
   Core_Parser
   Core_Util_Legacy
-  Graphics_Glyphs
+  Graphics_Widgets
   Graphics_Datatypes
 )
 

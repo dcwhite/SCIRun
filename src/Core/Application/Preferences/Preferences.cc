@@ -32,7 +32,11 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/classification.hpp>
+#ifdef BUILD_WITH_PYTHON
+#include <Core/Python/PythonInterpreter.h>
+#endif
 
 using namespace SCIRun::Core;
 using namespace SCIRun::Core::Logging;
@@ -49,26 +53,32 @@ Preferences::Preferences() :
   modulesSnapToGrid("modulesSnapToGrid", true),
   highlightPorts("highlightPorts", false),
   autoNotes("autoNotes", false),
+  highDPIAdjustment("highDPIAdjustment", false),
   modulesAreDockable("modulesAreDockable", true),
   networkBackgroundColor("backgroundColor", "#808080"),
-  postModuleAddScript_temporarySolution("postModuleAddScript", "")
+  postModuleAdd("postModuleAdd"),
+  onNetworkLoad("onNetworkLoad"),
+  applicationStart("applicationStart")
 {
 }
 
+TriggeredScriptInfo::TriggeredScriptInfo(const std::string& name) :
+  script(name + "_script", ""), enabled(name + "_enabled", false)
+{}
 
 boost::filesystem::path Preferences::dataDirectory() const
 {
   return dataDir_;
 }
 
-void Preferences::setDataDirectory(const boost::filesystem::path& path)
+void Preferences::setDataDirectory(const boost::filesystem::path& path, bool runPython)
 {
   dataDir_ = path;
 
   if (!boost::filesystem::exists(path))
-    Log::get() << WARN << "Data directory " << path << " does not exist." << std::endl;
+    GeneralLog::Instance().get()->warn("Data directory {} does not exist.", path.string());
   if (!boost::filesystem::is_directory(path))
-    Log::get() << WARN << "Data directory " << path << " is not a directory." << std::endl;
+    GeneralLog::Instance().get()->warn("Data directory {} is not a directory.", path.string());
 
   if (dataDir_.string().back() == boost::filesystem::path::preferred_separator)
   {
@@ -77,6 +87,15 @@ void Preferences::setDataDirectory(const boost::filesystem::path& path)
 
   AlgorithmParameterHelper::setDataDir(dataDir_);
   AlgorithmParameterHelper::setDataDirPlaceholder(dataDirectoryPlaceholder());
+
+#ifdef BUILD_WITH_PYTHON
+  if (runPython)
+  {
+    auto forwardSlashPath = boost::replace_all_copy(dataDir_.string(), "\\", "/");
+    auto setDataDir = "import os; os.environ[\"SCIRUNDATADIR\"] = \"" + forwardSlashPath + "\"";
+    PythonInterpreter::Instance().run_string(setDataDir);
+  }
+#endif
 }
 
 /// @todo: not sure where this should go.

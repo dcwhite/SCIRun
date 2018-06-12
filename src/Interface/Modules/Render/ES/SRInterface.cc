@@ -26,6 +26,7 @@
  DEALINGS IN THE SOFTWARE.
  */
 
+#include <es-log/trace-log.h>
 // Needed for OpenGL include files on Travis:
 #include <gl-platform/GLPlatform.hpp>
 #include <Interface/Modules/Render/UndefiningX11Cruft.h>
@@ -34,11 +35,10 @@
 #include <Interface/Modules/Render/ES/SRInterface.h>
 #include <Interface/Modules/Render/ES/SRCamera.h>
 
+#include <Core/Logging/Log.h>
 #include <Core/Application/Application.h>
-//#include <Modules/Visualization/ShowColorMapModule.h>
 #include <Graphics/Glyphs/GlyphGeom.h>
 
-// CPM modules.
 #include <es-general/comp/StaticScreenDims.hpp>
 #include <es-general/comp/StaticCamera.hpp>
 #include <es-general/comp/StaticOrthoCamera.hpp>
@@ -64,13 +64,14 @@
 #include "comp/LightingUniforms.h"
 #include "comp/ClippingPlaneUniforms.h"
 
+using namespace SCIRun;
 using namespace SCIRun::Core::Datatypes;
 using namespace SCIRun::Graphics::Datatypes;
 using namespace SCIRun::Core::Geometry;
 
 using namespace std::placeholders;
 
-namespace fs = CPM_ES_FS_NS;
+namespace fs = spire;
 
 namespace SCIRun {
   namespace Render {
@@ -85,8 +86,6 @@ namespace SCIRun {
       mScreenHeight(480),
       axesFailCount_(0),
       mContext(context),
-      frameInitLimit_(frameInitLimit),
-      mCamera(new SRCamera(*this)),  // Should come after all vars have been initialized.
       clippingPlaneIndex_(0),
       mMatAmbient(0.2),
       mMatDiffuse(1.0),
@@ -95,11 +94,10 @@ namespace SCIRun {
       mFogIntensity(0.0),
       mFogStart(0.0),
       mFogEnd(1.0),
-      mFogColor(glm::vec4(0.0))
+      mFogColor(glm::vec4(0.0)),
+      frameInitLimit_(frameInitLimit),
+      mCamera(new SRCamera(*this))  // Should come after all vars have been initialized.
     {
-      // Create default colormaps.
-      //generateTextures();
-
       showOrientation_ = true;
       autoRotate_ = false;
       selectWidget_ = false;
@@ -109,6 +107,7 @@ namespace SCIRun {
       // Construct ESCore. We will need to bootstrap the core. We should also
       // probably add utility static classes.
       setupCore();
+      setupLights();
     }
 
     //------------------------------------------------------------------------------
@@ -153,6 +152,18 @@ namespace SCIRun {
 
     }
 
+    void SRInterface::setupLights()
+    {
+      //mLightPosition;
+      mLightsOn.push_back(true);
+      mLightPosition.push_back(glm::vec3(0, 0, 1));
+      for (int i = 1; i < LIGHT_NUM; ++i)
+      {
+        mLightsOn.push_back(false);
+        mLightPosition.push_back(glm::vec3(0, 0, 1));
+      }
+    }
+
     //------------------------------------------------------------------------------
     void SRInterface::setMouseMode(MouseMode mode)
     {
@@ -190,8 +201,8 @@ namespace SCIRun {
       gen::StaticScreenDims* dims = mCore.getStaticComponent<gen::StaticScreenDims>();
       if (dims)
       {
-        dims->width = static_cast<size_t>(width);
-        dims->height = static_cast<size_t>(height);
+        dims->width = static_cast<uint32_t>(width);
+        dims->height = static_cast<uint32_t>(height);
       }
 
       // Setup default camera projection.
@@ -226,11 +237,26 @@ namespace SCIRun {
       {
         if (btn == MouseButton::MOUSE_LEFT)
         {
-          //widgetSelected_ = foundWidget(pos);
-          std::cout << "widget exists" << std::endl;
+          // //widgetSelected_ = foundWidget(pos);
+          // std::cout << "widget exists" << std::endl;
         }
       }
       mCamera->mouseDownEvent(pos, btn);
+    }
+
+    void SRInterface::setLockZoom(bool lock)
+    {
+      mCamera->setLockZoom(lock);
+    }
+
+    void SRInterface::setLockPanning(bool lock)
+    {
+      mCamera->setLockPanning(lock);
+    }
+
+    void SRInterface::setLockRotation(bool lock)
+    {
+      mCamera->setLockRotation(lock);
     }
 
     //------------------------------------------------------------------------------
@@ -306,7 +332,7 @@ namespace SCIRun {
         std::vector<size_t> stride_vbo;
 
         int nameIndex = 0;
-        for (auto it = obj->mVBOs.cbegin(); it != obj->mVBOs.cend(); ++it, ++nameIndex)
+        for (auto it = obj->vbos().cbegin(); it != obj->vbos().cend(); ++it, ++nameIndex)
         {
           const auto& vbo = *it;
 
@@ -331,7 +357,7 @@ namespace SCIRun {
 
         // Add index buffer objects.
         nameIndex = 0;
-        for (auto it = obj->mIBOs.cbegin(); it != obj->mIBOs.cend(); ++it, ++nameIndex)
+        for (auto it = obj->ibos().cbegin(); it != obj->ibos().cend(); ++it, ++nameIndex)
         {
           const auto& ibo = *it;
           GLenum primType = GL_UNSIGNED_SHORT;
@@ -380,7 +406,7 @@ namespace SCIRun {
         if (auto shaderMan = sm.lock())
         {
           // Add passes
-          for (auto& pass : obj->mPasses)
+          for (auto& pass : obj->passes())
           {
             uint64_t entityID = getEntityIDForName(pass.passName, port);
 
@@ -394,7 +420,7 @@ namespace SCIRun {
               // We will be constructing a render list from the VBO and IBO.
               RenderList list;
 
-              for (const auto& vbo : obj->mVBOs)
+              for (const auto& vbo : obj->vbos())
               {
                 if (vbo.name == pass.vboName)
                 {
@@ -561,7 +587,7 @@ namespace SCIRun {
     {
       return mWidgetTransform;
     }
-    
+
     //------------------------------------------------------------------------------
     //--------------Clipping Plane Tools--------------------------------------------
     void SRInterface::checkClippingPlanes(int n)
@@ -741,14 +767,17 @@ namespace SCIRun {
     //------------------------------------------------------------------------------
     void SRInterface::handleGeomObject(GeometryHandle obj, int port)
     {
-      // Ensure our rendering context is current on our thread.
+      //logRendererInfo("Handling geom object on port {}", port);
+      RENDERER_LOG_FUNCTION_SCOPE;
+      RENDERER_LOG("Ensure our rendering context is current on our thread.");
+      DEBUG_LOG_LINE_INFO
       mContext->makeCurrent();
 
       std::string objectName = obj->uniqueID();
       BBox bbox; // Bounding box containing all vertex buffer objects.
 
-      // Check to see if the object already exists in our list. If so, then
-      // remove the object. We will re-add it.
+      RENDERER_LOG("Check to see if the object already exists in our list. "
+        "If so, then remove the object. We will re-add it.");
       auto foundObject = std::find_if(
         mSRObjects.begin(), mSRObjects.end(),
         [&objectName](const SRObject& sro)
@@ -756,48 +785,54 @@ namespace SCIRun {
         return (sro.mName == objectName);
       });
 
+      DEBUG_LOG_LINE_INFO
+
       std::weak_ptr<ren::VBOMan> vm = mCore.getStaticComponent<ren::StaticVBOMan>()->instance_;
       std::weak_ptr<ren::IBOMan> im = mCore.getStaticComponent<ren::StaticIBOMan>()->instance_;
       if (std::shared_ptr<ren::VBOMan> vboMan = vm.lock())
       {
+        DEBUG_LOG_LINE_INFO
         if (std::shared_ptr<ren::IBOMan> iboMan = im.lock())
         {
+          DEBUG_LOG_LINE_INFO
           if (foundObject != mSRObjects.end())
           {
-            // Iterate through each of the passes and remove their associated
-            // entity ID.
+            DEBUG_LOG_LINE_INFO
+
+            RENDERER_LOG("Iterate through each of the passes and remove their associated entity ID.");
             for (const auto& pass : foundObject->mPasses)
             {
               uint64_t entityID = getEntityIDForName(pass.passName, port);
               mCore.removeEntity(entityID);
             }
 
-            // We need to renormalize the core after removing entities. We don't need
-            // to run a new pass however. Renormalization is enough to remove
-            // old entities from the system.
+            RENDERER_LOG("We need to renormalize the core after removing entities. We don't need"
+              "to run a new pass however. Renormalization is enough to remove"
+              "old entities from the system.");
             mCore.renormalize(true);
 
-            // Run a garbage collection cycle for the VBOs and IBOs. We will likely
-            // be using similar VBO and IBO names.
+            RENDERER_LOG("Run a garbage collection cycle for the VBOs and IBOs. We will likely"
+              " be using similar VBO and IBO names.");
             vboMan->runGCCycle(mCore);
             iboMan->runGCCycle(mCore);
 
-            // Remove the object from the entity system.
+            RENDERER_LOG("Remove the object from the entity system.");
             mSRObjects.erase(foundObject);
           }
 
-          // Add vertex buffer objects.
+          DEBUG_LOG_LINE_INFO
+          RENDERER_LOG("Add vertex buffer objects.");
           std::vector<char*> vbo_buffer;
           std::vector<size_t> stride_vbo;
 
           int nameIndex = 0;
-          for (auto it = obj->mVBOs.cbegin(); it != obj->mVBOs.cend(); ++it, ++nameIndex)
+          for (auto it = obj->vbos().cbegin(); it != obj->vbos().cend(); ++it, ++nameIndex)
           {
             const auto& vbo = *it;
 
             if (vbo.onGPU)
             {
-              // Generate vector of attributes to pass into the entity system.
+              RENDERER_LOG("Generate vector of attributes to pass into the entity system: {}, {}", nameIndex, vbo.name);
               std::vector<std::tuple<std::string, size_t, bool>> attributeData;
               for (const auto& attribData : vbo.attributes)
               {
@@ -816,9 +851,10 @@ namespace SCIRun {
             bbox.extend(vbo.boundingBox);
           }
 
-          // Add index buffer objects.
+          DEBUG_LOG_LINE_INFO
+          RENDERER_LOG("Add index buffer objects.");
           nameIndex = 0;
-          for (auto it = obj->mIBOs.cbegin(); it != obj->mIBOs.cend(); ++it, ++nameIndex)
+          for (auto it = obj->ibos().cbegin(); it != obj->ibos().cend(); ++it, ++nameIndex)
           {
             const auto& ibo = *it;
             GLenum primType = GL_UNSIGNED_SHORT;
@@ -838,6 +874,7 @@ namespace SCIRun {
 
             default:
               primType = GL_UNSIGNED_INT;
+              logRendererError("Unable to determine index buffer depth.");
               throw std::invalid_argument("Unable to determine index buffer depth.");
               break;
             }
@@ -861,7 +898,7 @@ namespace SCIRun {
 
             if (mRenderSortType == RenderState::TransparencySortType::LISTS_SORT)
             {
-              /// Create sorted lists of Buffers for transparency in each direction of the axis
+              RENDERER_LOG("Create sorted lists of Buffers for transparency in each direction of the axis.");
               uint32_t* ibo_buffer = reinterpret_cast<uint32_t*>(ibo.data->getBuffer());
               size_t num_triangles = ibo.data->getBufferSize() / (sizeof(uint32_t) * 3);
               Vector dir(0.0, 0.0, 0.0);
@@ -951,16 +988,16 @@ namespace SCIRun {
             }
           }
 
-          // Add default identity transform to the object globally (instead of per-pass)
+          RENDERER_LOG("Add default identity transform to the object globally (instead of per-pass)");
           glm::mat4 xform;
-          mSRObjects.push_back(SRObject(objectName, xform, bbox, obj->mColorMap, port));
+          mSRObjects.push_back(SRObject(objectName, xform, bbox, obj->colorMap(), port));
           SRObject& elem = mSRObjects.back();
 
           std::weak_ptr<ren::ShaderMan> sm = mCore.getStaticComponent<ren::StaticShaderMan>()->instance_;
           if (auto shaderMan = sm.lock())
           {
-            // Add passes
-            for (auto& pass : obj->mPasses)
+            RENDERER_LOG("Add passes");
+            for (auto& pass : obj->passes())
             {
               uint64_t entityID = getEntityIDForName(pass.passName, port);
 
@@ -992,15 +1029,15 @@ namespace SCIRun {
                 {
                   addIBOToEntity(entityID, pass.iboName);
                 }
-                //add texture
+                RENDERER_LOG("add texture");
                 addTextToEntity(entityID, pass.text);
               }
               else
               {
-                // We will be constructing a render list from the VBO and IBO.
+                RENDERER_LOG("We will be constructing a render list from the VBO and IBO.");
                 RenderList list;
 
-                for (const auto& vbo : obj->mVBOs)
+                for (const auto& vbo : obj->vbos())
                 {
                   if (vbo.name == pass.vboName)
                   {
@@ -1013,8 +1050,8 @@ namespace SCIRun {
                   }
                 }
 
-                // Lookup the VBOs and IBOs associated with this particular draw list
-                // and add them to our entity in question.
+                RENDERER_LOG("Lookup the VBOs and IBOs associated with this particular draw list "
+                  "and add them to our entity in question.");
                 std::string assetName = "Assets/sphere.geom";
 
                 if (pass.renderType == RenderType::RENDER_RLIST_SPHERE)
@@ -1031,11 +1068,10 @@ namespace SCIRun {
                 addIBOToEntity(entityID, assetName);
               }
 
-              // Load vertex and fragment shader will use an already loaded program.
-              //addShaderToEntity(entityID, pass.programName);
+              RENDERER_LOG("Load vertex and fragment shader will use an already loaded program.");
               shaderMan->loadVertexAndFragmentShader(mCore, entityID, pass.programName);
 
-              // Add transformation
+              RENDERER_LOG("Add transformation");
               gen::Transform trafo;
 
               if (pass.renderState.get(RenderState::IS_WIDGET))
@@ -1056,20 +1092,20 @@ namespace SCIRun {
               }
               mCore.addComponent(entityID, trafo);
 
-              // Add lighting uniform checks
+              RENDERER_LOG("Add lighting uniform checks");
               LightingUniforms lightUniforms;
               mCore.addComponent(entityID, lightUniforms);
-              //plane uniforms
+              RENDERER_LOG("plane uniforms");
               ClippingPlaneUniforms clipplingPlaneUniforms;
               mCore.addComponent(entityID, clipplingPlaneUniforms);
 
-              // Add SCIRun render state.
+              RENDERER_LOG("Add SCIRun render state.");
               SRRenderState state;
               state.state = pass.renderState;
               mCore.addComponent(entityID, state);
               RenderBasicGeom geom;
               mCore.addComponent(entityID, geom);
-              // Ensure common uniforms are covered.
+              RENDERER_LOG("Ensure common uniforms are covered.");
               ren::CommonUniforms commonUniforms;
               mCore.addComponent(entityID, commonUniforms);
 
@@ -1079,7 +1115,6 @@ namespace SCIRun {
                 applyUniform(entityID, uniform);
               }
 
-              //if (mFogIntensity > 0.0)
               {
                 Graphics::Datatypes::SpireSubPass::Uniform uniform;
                 uniform.name = "uFogSettings";
@@ -1097,13 +1132,13 @@ namespace SCIRun {
               // we want on the objects in question in show field. This could lead to
               // much simpler customization.
 
-              // Add a pass to our local object.
+              RENDERER_LOG("Add a pass to our local object.");
               elem.mPasses.emplace_back(pass.passName, pass.renderType);
               pass.renderState.mSortType = mRenderSortType;
               mCore.addComponent(entityID, pass);
             }
 
-            // Recalculate scene bounding box. Should only be done when an object is added.
+            RENDERER_LOG("Recalculate scene bounding box. Should only be done when an object is added.");
             mSceneBBox.reset();
             for (auto it = mSRObjects.begin(); it != mSRObjects.end(); ++it)
             {
@@ -1115,6 +1150,7 @@ namespace SCIRun {
           }
         }
       }
+      DEBUG_LOG_LINE_INFO
     }
 
     //------------------------------------------------------------------------------
@@ -1162,7 +1198,7 @@ namespace SCIRun {
 
       ren::Texture texture;
 
-      CPM_ES_CEREAL_NS::CerealHeap<ren::Texture>* contTex =
+      spire::CerealHeap<ren::Texture>* contTex =
         mCore.getOrCreateComponentContainer<ren::Texture>();
       std::pair<const ren::Texture*, size_t> component =
         contTex->getComponent(entityID);
@@ -1250,20 +1286,19 @@ namespace SCIRun {
       return true;
     }
 
-    //
     void SRInterface::updateWidget(const glm::ivec2& pos)
     {
       gen::StaticCamera* cam = mCore.getStaticComponent<gen::StaticCamera>();
       glm::vec4 spos((float(2 * pos.x) - float(mScreenWidth)) / float(mScreenWidth),
         (float(mScreenHeight) - float(2 * pos.y)) / float(mScreenHeight),
         mSelectedPos.z, 1.0f);
-      //gen::Transform trafo;
+
       mWidgetTransform = gen::Transform();
       mWidgetTransform.setPosition((spos - mSelectedPos).xyz());
       mWidgetTransform.transform = glm::inverse(cam->data.projIV) *
         mWidgetTransform.transform * cam->data.projIV;
 
-      CPM_ES_CEREAL_NS::CerealHeap<gen::Transform>* contTrans =
+      spire::CerealHeap<gen::Transform>* contTrans =
         mCore.getOrCreateComponentContainer<gen::Transform>();
       std::pair<const gen::Transform*, size_t> component =
         contTrans->getComponent(mSelectedID);
@@ -1365,15 +1400,86 @@ namespace SCIRun {
     //------------------------------------------------------------------------------
     void SRInterface::updateWorldLight()
     {
+      /*
+      getWorldToProjection() const;
+      getWorldToView() const;
+      getViewToWorld() const;
+      getViewToProjection() const;
+      */
       glm::mat4 viewToWorld = mCamera->getViewToWorld();
+      //glm::mat4 viewToWorld = mCamera->getWorldToView();
 
+      // Set directional light source (in world space).
+      StaticWorldLight* light = mCore.getStaticComponent<StaticWorldLight>();
+      if (light)
+      {
+        for (int i = 0; i < LIGHT_NUM; ++i)
+        {
+          /*
+          glm::vec3 viewDir = glm::vec3(0.0, 0.0, -1.0) - mLightPosition[i];
+          glm::vec4 newDir(viewDir.x, viewDir.y, viewDir.z, 1.0);
+          viewToWorld *= newDir;
+          glm::vec3 lightDir = viewToWorld[4].xyz();
+          */
+
+          glm::vec3 viewDir = viewToWorld[2].xyz();
+          viewDir = -viewDir; // Cameras look down -Z.
+          //light->lightDir[i] = mLightsOn[i] ? viewDir - mLightPosition[i] : glm::vec3(0.0, 0.0, 0.0);
+          light->lightDir[i] = mLightsOn[i] ? viewDir : glm::vec3(0.0, 0.0, 0.0);
+          //light->lightDir[i] = mLightsOn[i] ? lightDir : glm::vec3(0.0, 0.0, 0.0);
+        }
+      }
+    }
+
+    void SRInterface::setLightColor(int index, float r, float g, float b)
+    {
+      if (index >= LIGHT_NUM)
+        return;
+      StaticWorldLight* light = mCore.getStaticComponent<StaticWorldLight>();
+      if (light)
+      {
+        light->lightColor[index] = glm::vec3(r, g, b);
+      }
+    }
+
+
+    void SRInterface::setLightPosition(int index, float x, float y)
+    {
+      if (index >= LIGHT_NUM)
+        return;
+
+      glm::mat4 viewToWorld = mCamera->getViewToWorld();
+      if (mLightPosition.size() > 0)
+      {
+        mLightPosition[index] = glm::vec3(x, y, 0.0);
+      }
+      /*
       // Set directional light source (in world space).
       StaticWorldLight* light = mCore.getStaticComponent<StaticWorldLight>();
       if (light)
       {
         glm::vec3 viewDir = viewToWorld[2].xyz();
         viewDir = -viewDir; // Cameras look down -Z.
-        light->lightDir = viewDir;
+        light->lightDir[index] = mLightsOn[index] ? viewDir-position : glm::vec3(0.0, 0.0, 0.0);
+
+        glm::vec3 view1 = viewToWorld[0].xyz();
+        glm::vec3 view2 = viewToWorld[1].xyz();
+        glm::vec3 view4 = viewToWorld[3].xyz();
+        std::cout << "size: " << viewToWorld.length() << std::endl;
+        std::cout << "view1x: " << view1.x << " view1y: " << view1.y << " view1z: " << view1.z << std::endl;
+        std::cout << "view2x: " << view2.x << " view2y: " << view2.y << " view2z: " << view2.z << std::endl;
+        std::cout << "view3x: " << viewDir.x << " view3y: " << viewDir.y << " view3z: " << viewDir.z << std::endl;
+        std::cout << "view4x: " << view4.x << " view4y: " << view4.y << " view4z: " << view4.z << std::endl;
+        std::cout << "x: " << x << " y: " << y << " z: " << 0 << std::endl;
+      }
+      */
+    }
+
+    void SRInterface::setLightOn(int index, bool value)
+    {
+      if (mLightsOn.size() > 0 && index < LIGHT_NUM)
+      {
+        mLightsOn[index] = value;
       }
     }
 
@@ -1757,8 +1863,8 @@ namespace SCIRun {
           GLsizei(w), GLsizei(h), 0,
           GL_RGBA,
           GL_UNSIGNED_BYTE, (GLvoid*)font));
-        delete font_data;
-        delete font;
+        delete [] font_data;
+        delete [] font;
       }
     }
   } // namespace Render

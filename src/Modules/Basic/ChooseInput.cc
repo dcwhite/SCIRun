@@ -33,7 +33,7 @@ using namespace SCIRun::Dataflow::Networks;
 using namespace SCIRun::Core::Datatypes;
 using namespace SCIRun::Core::Algorithms::FlowControl;
 
-const ModuleLookupInfo ChooseInput::staticInfo_("ChooseInput", "Flow Control", "SCIRun");
+MODULE_INFO_DEF(ChooseInput, Flow Control, SCIRun)
 
 ALGORITHM_PARAMETER_DEF(FlowControl, PortIndex);
 ALGORITHM_PARAMETER_DEF(FlowControl, PortMax);
@@ -68,7 +68,7 @@ void ChooseInput::execute()
 void ChooseInput::portAddedSlot(const ModuleId& mid, const PortId&)
 {
   //TODO: redesign with non-virtual slot method and virtual hook that ensures module id is the same as this
-  if (mid == id_)
+  if (mid == get_id())
   {
     portChangeImpl();
   }
@@ -77,7 +77,7 @@ void ChooseInput::portAddedSlot(const ModuleId& mid, const PortId&)
 void ChooseInput::portRemovedSlot(const ModuleId& mid, const PortId&)
 {
   //TODO: redesign with non-virtual slot method and virtual hook that ensures module id is the same as this
-  if (mid == id_)
+  if (mid == get_id())
   {
     portChangeImpl();
   }

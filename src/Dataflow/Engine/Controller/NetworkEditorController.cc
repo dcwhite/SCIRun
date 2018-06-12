@@ -64,7 +64,7 @@ using namespace SCIRun::Core::Commands;
 using namespace SCIRun::Core::Thread;
 
 NetworkEditorController::NetworkEditorController(ModuleFactoryHandle mf, ModuleStateFactoryHandle sf, ExecutionStrategyFactoryHandle executorFactory,
-  AlgorithmFactoryHandle af, ReexecuteStrategyFactoryHandle reex, GlobalCommandFactoryHandle cmdFactory, 
+  AlgorithmFactoryHandle af, ReexecuteStrategyFactoryHandle reex, GlobalCommandFactoryHandle cmdFactory,
   NetworkEventCommandFactoryHandle eventCmdFactory, NetworkEditorSerializationManager* nesm) :
   theNetwork_(new Network(mf, sf, af, reex)),
   moduleFactory_(mf),
@@ -75,7 +75,8 @@ NetworkEditorController::NetworkEditorController(ModuleFactoryHandle mf, ModuleS
   cmdFactory_(cmdFactory),
   eventCmdFactory_(eventCmdFactory ? eventCmdFactory : boost::make_shared<NullCommandFactory>()),
   serializationManager_(nesm),
-  signalSwitch_(true)
+  signalSwitch_(true),
+  loadingContext_(false)
 {
   dynamicPortManager_.reset(new DynamicPortManager(connectionAdded_, connectionRemoved_, this));
 
@@ -84,10 +85,12 @@ NetworkEditorController::NetworkEditorController(ModuleFactoryHandle mf, ModuleS
 #ifdef BUILD_WITH_PYTHON
   NetworkEditorPythonAPI::setImpl(boost::make_shared<PythonImpl>(*this, cmdFactory_));
 #endif
+
+  eventCmdFactory_->create(NetworkEventCommands::ApplicationStart)->execute();
 }
 
 NetworkEditorController::NetworkEditorController(NetworkHandle network, ExecutionStrategyFactoryHandle executorFactory, NetworkEditorSerializationManager* nesm)
-  : theNetwork_(network), executorFactory_(executorFactory), 
+  : theNetwork_(network), executorFactory_(executorFactory),
   eventCmdFactory_(new NullCommandFactory),
   serializationManager_(nesm),
   signalSwitch_(true)
@@ -119,10 +122,16 @@ namespace
 
       ModulePositions positions;
       int i = 0;
-      const double moduleVerticalSpacing = 120;
-      const double moduleHorizontalSpacing = 264;
-      const double moduleSpacingOffset = 10;
+      const double MODULE_VERTICAL_SPACING = 110;
+      const double MODULE_HORIZONTAL_SPACING = 264;
+      const double MODULE_SPACING_OFFSET = 10;
+      const double INITIAL_SNIPPET_LOC = 50;
+      static double snippetSpacer = 50;
       static int numSnips = 0;
+      if (0 == nec_.getNetwork()->nmodules())
+      {
+        snippetSpacer = INITIAL_SNIPPET_LOC;
+      }
       for (auto m : modsNeeded)
       {
         bool uiVisible = false;
@@ -135,9 +144,15 @@ namespace
         if (mod->has_ui())
           mod->setUiVisible(uiVisible);
         mods_.push_back(mod);
-        positions.modulePositions[mod->get_id().id_] = std::make_pair(moduleSpacingOffset + numSnips*moduleHorizontalSpacing, moduleVerticalSpacing * i++ + moduleSpacingOffset);
+        positions.modulePositions[mod->get_id().id_] =
+          { snippetSpacer + numSnips * MODULE_HORIZONTAL_SPACING,
+            snippetSpacer + MODULE_VERTICAL_SPACING * i++ };
       }
-      numSnips++;
+      numSnips = (numSnips + 1) % 3;
+      if (0 == numSnips)
+      {
+        snippetSpacer += MODULE_SPACING_OFFSET;
+      }
 
       auto connsNeeded = parseConnections(label);
       for (const auto& c : connsNeeded)
@@ -146,7 +161,7 @@ namespace
           nec_.requestConnection(c.first, c.second);
       }
 
-      nec_.updateModulePositions(positions);
+      nec_.updateModulePositions(positions, true);
 
       return mods_.back();
     }
@@ -169,7 +184,6 @@ namespace
       if (!isSnippetName(label))
         return {};
 
-      //TODO: need a way to specify more than just linear connections.
       parseModules(label);
 
       if (mods_.size() < 2)
@@ -230,7 +244,8 @@ ModuleHandle NetworkEditorController::addModule(const ModuleLookupInfo& info)
   }
   printNetwork();
 
-  eventCmdFactory_->create(NetworkEventCommands::PostModuleAdd)->execute();
+  if (!loadingContext_)
+    eventCmdFactory_->create(NetworkEventCommands::PostModuleAdd)->execute();
 
   return realModule;
 }
@@ -285,6 +300,11 @@ ModuleHandle NetworkEditorController::duplicateModule(const ModuleHandle& module
     }
   }
 
+  if (serializationManager_)
+  {
+    serializationManager_->copyNote(module, newModule);
+  }
+
   return newModule;
 }
 
@@ -336,7 +356,7 @@ void NetworkEditorController::printNetwork() const
   if (false)
   {
     if (theNetwork_)
-      LOG_DEBUG(theNetwork_->toString() << std::endl);
+      LOG_DEBUG(theNetwork_->toString());
   }
 }
 
@@ -364,7 +384,7 @@ boost::optional<ConnectionId> NetworkEditorController::requestConnection(const P
     return id;
   }
 
-  Log::get() << NOTICE << "Invalid Connection request: input port is full, or ports are different datatype or same i/o type, or on the same module." << std::endl;
+  GeneralLog::Instance().get()->warn("Invalid Connection request: input port is full, or ports are different datatype or same i/o type, or on the same module.");
   invalidConnection_(desc);
   return boost::none;
 }
@@ -438,12 +458,23 @@ NetworkFileHandle NetworkEditorController::saveNetwork() const
   return conv.to_xml_data(theNetwork_);
 }
 
+NetworkEditorController::LoadingContext::LoadingContext(bool& load) : load_(load)
+{
+  load_ = true;
+}
+
+NetworkEditorController::LoadingContext::~LoadingContext()
+{
+  load_ = false;
+}
+
 ////////
 // TODO: refactor the next two functions into one
 ///////
 
 void NetworkEditorController::loadNetwork(const NetworkFileHandle& xml)
 {
+  LoadingContext ctx(loadingContext_);
   if (xml)
   {
     try
@@ -462,7 +493,7 @@ void NetworkEditorController::loadNetwork(const NetworkFileHandle& xml)
         auto disable(createDynamicPortSwitch());
         //this is handled by NetworkXMLConverter now--but now the logic is convoluted.
         //They need to be signaled again after the modules are signaled to alert the GUI. Hence the disabling of DPM
-        for (const ConnectionDescription& cd : theNetwork_->connections())
+        for (const auto& cd : theNetwork_->connections())
         {
           auto id = ConnectionId::create(cd);
           connectionAdded_(cd);
@@ -470,22 +501,28 @@ void NetworkEditorController::loadNetwork(const NetworkFileHandle& xml)
       }
       if (serializationManager_)
       {
-        serializationManager_->updateModulePositions(xml->modulePositions);
         serializationManager_->updateModuleNotes(xml->moduleNotes);
         serializationManager_->updateConnectionNotes(xml->connectionNotes);
-        serializationManager_->updateModuleTags(xml->moduleTags);
         serializationManager_->updateDisabledComponents(xml->disabledComponents);
+        serializationManager_->updateSubnetworks(xml->subnetworks);
+        serializationManager_->updateModulePositions(xml->modulePositions, false);
+        serializationManager_->updateModuleTags(xml->moduleTags);
       }
       else
-        Log::get() << INFO <<  "module position editor unavailable, module positions at default" << std::endl;
+      {
+#ifndef BUILD_HEADLESS
+        GeneralLog::Instance().get()->info("module position editor unavailable, module positions at default");
+#endif
+      }
       networkDoneLoading_(static_cast<int>(theNetwork_->nmodules()) + 1);
     }
     catch (ExceptionBase& e)
     {
-      Log::get() << ERROR_LOG << "File load failed: exception while processing xml network data: " << e.what() << std::endl;
+      GeneralLog::Instance().get()->error("File load failed: exception while processing xml network data: {}", e.what());
       theNetwork_->clear();
       throw;
     }
+    eventCmdFactory_->create(NetworkEventCommands::OnNetworkLoad)->execute();
   }
 }
 
@@ -546,7 +583,7 @@ void NetworkEditorController::appendToNetwork(const NetworkFileHandle& xml)
       {
         xml->modulePositions.modulePositions = remapIdBasedContainer(xml->modulePositions.modulePositions, info.moduleIdMapping);
         shiftAppendedModules(xml->modulePositions.modulePositions);
-        serializationManager_->updateModulePositions(xml->modulePositions); // need to shift everything.
+        serializationManager_->updateModulePositions(xml->modulePositions, false); // need to shift everything.
         xml->moduleNotes.notes = remapIdBasedContainer(xml->moduleNotes.notes, info.moduleIdMapping);
         serializationManager_->updateModuleNotes(xml->moduleNotes);
         xml->connectionNotes.notes = remapIdBasedContainer(xml->connectionNotes.notes, info.moduleIdMapping);
@@ -556,11 +593,11 @@ void NetworkEditorController::appendToNetwork(const NetworkFileHandle& xml)
         //TODO: need disabled here?
       }
       else
-        Log::get() << INFO << "module position editor unavailable, module positions at default" << std::endl;
+        GeneralLog::Instance().get()->info("module position editor unavailable, module positions at default");
     }
     catch (ExceptionBase& e)
     {
-      Log::get() << ERROR_LOG << "File load failed: exception while processing xml network data: " << e.what() << std::endl;
+      GeneralLog::Instance().get()->error("File load failed: exception while processing xml network data: {}", e.what());
       theNetwork_->clear();
       throw;
     }
@@ -569,7 +606,7 @@ void NetworkEditorController::appendToNetwork(const NetworkFileHandle& xml)
 
 void NetworkEditorController::clear()
 {
-  LOG_DEBUG("NetworkEditorController::clear()" << std::endl);
+  LOG_DEBUG("NetworkEditorController::clear()");
 }
 
 // TODO:
@@ -577,15 +614,24 @@ void NetworkEditorController::clear()
 // - [X] set up execution context queue
 // - [X] separate threads for looping through queue: another producer/consumer pair
 
-void NetworkEditorController::executeAll(const ExecutableLookup* lookup)
+boost::shared_ptr<boost::thread> NetworkEditorController::executeAll(const ExecutableLookup* lookup)
 {
-  executeGeneric(lookup, ExecuteAllModules::Instance());
+  return executeGeneric(lookup, ExecuteAllModules::Instance());
 }
 
-void NetworkEditorController::executeModule(const ModuleHandle& module, const ExecutableLookup* lookup)
+void NetworkEditorController::executeModule(const ModuleHandle& module, const ExecutableLookup* lookup, bool executeUpstream)
 {
-  ExecuteSingleModule filter(module, *theNetwork_);
-  executeGeneric(lookup, filter);
+  try
+  {
+    ExecuteSingleModule filter(module, *theNetwork_, executeUpstream);
+    executeGeneric(lookup, filter);
+  }
+  catch (NetworkHasCyclesException&)
+  {
+    SCIRun::Core::Logging::GeneralLog::Instance().get()->error("Cannot schedule execution: network has cycles. Please break all cycles and try again.");
+    ExecutionContext::executionBounds_.executeFinishes_(-1);
+    return;
+  }
 }
 
 void NetworkEditorController::initExecutor()
@@ -598,12 +644,20 @@ ExecutionContextHandle NetworkEditorController::createExecutionContext(const Exe
   return boost::make_shared<ExecutionContext>(*theNetwork_, lookup ? *lookup : *theNetwork_, filter);
 }
 
-void NetworkEditorController::executeGeneric(const ExecutableLookup* lookup, ModuleFilter filter)
+boost::shared_ptr<boost::thread> NetworkEditorController::executeGeneric(const ExecutableLookup* lookup, ModuleFilter filter)
 {
   initExecutor();
   auto context = createExecutionContext(lookup, filter);
+  return executionManager_.enqueueContext(context);
+}
 
-  executionManager_.enqueueContext(context);
+void NetworkEditorController::stopExecutionContextLoopWhenExecutionFinishes()
+{
+  connectNetworkExecutionFinished([this](int)
+  {
+    std::cout << "Execution manager thread stopped." << std::endl;
+    executionManager_.stop();
+  });
 }
 
 NetworkHandle NetworkEditorController::getNetwork() const
@@ -674,11 +728,11 @@ const ModuleLookupInfoSet& NetworkEditorController::possibleReplacements(ModuleH
   return replacementFilter_->findReplacements(makeConnectedPortInfo(module));
 }
 
-void NetworkEditorController::updateModulePositions(const ModulePositions& modulePositions)
+void NetworkEditorController::updateModulePositions(const ModulePositions& modulePositions, bool selectAll)
 {
   if (serializationManager_)
   {
-    serializationManager_->updateModulePositions(modulePositions);
+    serializationManager_->updateModulePositions(modulePositions, selectAll);
   }
 }
 
@@ -708,9 +762,14 @@ void NetworkEditorController::cleanUpNetwork()
     for (const auto& g : c.second)
     {
       //std::cout << "component " << c.first << " group " << g.first << " module " << g.second << std::endl;
-      cleanedUp.modulePositions[g.second] = { c.first * 400.0, g.first * 150.0 };
+      cleanedUp.modulePositions[g.second] = { c.first * 400.0, g.first * 80.0 };
     }
   }
 
-  updateModulePositions(cleanedUp);
+  updateModulePositions(cleanedUp, false);
+}
+
+std::vector<ModuleExecutionState::Value> NetworkEditorController::moduleExecutionStates() const
+{
+  return theNetwork_ ? theNetwork_->moduleExecutionStates() : std::vector<ModuleExecutionState::Value>();
 }

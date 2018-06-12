@@ -3,7 +3,7 @@
  The MIT License
  Copyright (c) 2015 Scientific Computing and Imaging Institute,
  University of Utah.
- 
+
  Permission is hereby granted, free of charge, to any person obtaining a
  copy of this software and associated documentation files (the "Software"),
  to deal in the Software without restriction, including without limitation
@@ -30,23 +30,25 @@
 namespace SCIRun {
     namespace Modules {
         namespace Math {
-            
+
             class SCISHARE ComputePCA : public Dataflow::Networks::Module,
             public Has1InputPort<MatrixPortTag>,
             public Has3OutputPorts<MatrixPortTag, MatrixPortTag, MatrixPortTag>
             {
             public:
                 ComputePCA();
-                virtual void setStateDefaults() {}
-                virtual void execute();
-                
+                virtual void setStateDefaults() override {}
+                virtual void execute() override;
+
                 INPUT_PORT(0, InputMatrix, Matrix);
                 OUTPUT_PORT(0, LeftPrincipalMatrix, DenseMatrix);
                 OUTPUT_PORT(1, PrincipalValues, DenseMatrix);
                 OUTPUT_PORT(2, RightPrincipalMatrix, DenseMatrix);
-                
+
+                MODULE_TRAITS_AND_INFO(ModuleHasAlgorithm)
+                NEW_HELP_WEBPAGE_ONLY
             };
-            
+
         }}};
 
 

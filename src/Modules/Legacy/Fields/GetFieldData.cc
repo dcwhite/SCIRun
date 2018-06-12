@@ -41,9 +41,9 @@ using namespace SCIRun::Dataflow::Networks;
 using namespace SCIRun::Core::Datatypes;
 using namespace SCIRun;
 
-const ModuleLookupInfo GetFieldDataModule::staticInfo_("GetFieldData", "ChangeFieldData", "SCIRun");
+MODULE_INFO_DEF(GetFieldData, ChangeFieldData, SCIRun)
 
-GetFieldDataModule::GetFieldDataModule()
+GetFieldData::GetFieldData()
   : Module(staticInfo_, false)
 {
   INITIALIZE_PORT(InputField);
@@ -52,7 +52,7 @@ GetFieldDataModule::GetFieldDataModule()
   INITIALIZE_PORT(OutputComplexMatrix);
 }
 
-void GetFieldDataModule::execute()
+void GetFieldData::execute()
 {
   auto input = getRequiredInput(InputField);
 
@@ -60,11 +60,8 @@ void GetFieldDataModule::execute()
   bool need_nrrd_data = oport_connected(OutputNrrd);
   bool need_complex_matrix_data = oport_connected(OutputComplexMatrix);
 
-  //TODO: need to integrate "output port connection status changed" into needToExecute()
-  if (needToExecute() || need_nrrd_data)
+  if (needToExecute())
   {
-    update_state(Executing);
-
     algo().set(Parameters::CalcMatrix, need_matrix_data);
     algo().set(Parameters::CalcNrrd, need_nrrd_data);
     algo().set(Parameters::CalcComplexMatrix, need_complex_matrix_data);

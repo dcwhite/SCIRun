@@ -37,18 +37,20 @@ namespace SCIRun {
   namespace Modules {
     namespace Basic {
 
-      class SCISHARE PrintDatatypeModule : public SCIRun::Dataflow::Networks::Module,
+      class SCISHARE PrintDatatype : public SCIRun::Dataflow::Networks::Module,
         public Has1InputPort<DatatypePortTag>,
         public HasNoOutputPorts
       {
       public:
-        PrintDatatypeModule();
-        virtual void execute();
-        virtual void setStateDefaults();
+        PrintDatatype();
+        virtual void execute() override;
+        virtual void setStateDefaults() override;
 
         INPUT_PORT(0, Input, Datatype);
 
         static Core::Algorithms::AlgorithmParameterName ReceivedValue;
+
+        MODULE_TRAITS_AND_INFO(ModuleHasUI)
       };
  }}}
 

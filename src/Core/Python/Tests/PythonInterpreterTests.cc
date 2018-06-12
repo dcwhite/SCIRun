@@ -38,8 +38,14 @@
 #include <Testing/Utils/MatrixTestUtilities.h>
 #include <Testing/Utils/SCIRunUnitTests.h>
 #include <Testing/Utils/SCIRunFieldSamples.h>
+#ifdef WIN32
+#ifndef DEBUG
+#include <Core/Python/PythonInterpreter.h>
+#endif
+#endif
 
 using namespace SCIRun;
+using namespace SCIRun::Core;
 using namespace Core::Python;
 using namespace Testing;
 using namespace TestUtils;
@@ -49,10 +55,17 @@ class FieldConversionTests : public testing::Test
 protected:
   virtual void SetUp() override
   {
+  #ifdef WIN32
+  #ifndef DEBUG
+    PythonInterpreter::Instance().initialize(false, "Core_Python_Tests", boost::filesystem::current_path().string());
+    PythonInterpreter::Instance().importSCIRunLibrary();
+  #endif
+  #else
     Py_Initialize();
+  #endif
   }
 
-  FieldHandle roundTripThroughMatlabConverter(FieldHandle field)
+  static FieldHandle roundTripThroughMatlabConverter(FieldHandle field)
   {
     MatlabIO::matlabarray ma;
     {
@@ -69,50 +82,68 @@ protected:
     return actual;
   }
 
-  FieldHandle TetMesh1()
+  static FieldHandle TetMesh1()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/test_mapfielddatafromelemtonode.fld");
   }
 
-  FieldHandle TetMesh2()
+  static FieldHandle TetMesh2()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/test_mapfielddatafromnodetoelem.fld");
   }
 
-  FieldHandle CreateTriSurfScalarOnNode()
+  static FieldHandle CreateTriSurfScalarOnNode()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/tri_surf/data_defined_on_node/scalar/tri_scalar_on_node.fld");
   }
-  FieldHandle CreateTriSurfVectorOnNode()
+  static FieldHandle CreateTriSurfVectorOnNode()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/tri_surf/data_defined_on_node/vector/tri_vector_on_node.fld");
   }
 
-  FieldHandle CreateTetMeshVectorOnNode()
+  static FieldHandle CreateTetMeshVectorOnNode()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/tet_mesh/data_defined_on_node/vector/tet_vector_on_node.fld");
   }
-  FieldHandle CreateTetMeshScalarOnNode()
+  static FieldHandle CreateTetMeshScalarOnNode()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/tet_mesh/data_defined_on_node/scalar/tet_scalar_on_node.fld");
   }
-  FieldHandle CreateTetMeshScalarOnElem()
+  static FieldHandle CreateTetMeshScalarOnElem()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/tet_mesh/data_defined_on_elem/scalar/tet_scalar_on_elem.fld");
   }
-  FieldHandle CreateTetMeshTensorOnNode()
+  static FieldHandle CreateTetMeshTensorOnNode()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/tet_mesh/data_defined_on_node/tensor/tet_tensor_on_node.fld");
   }
 
-  FieldHandle CreatePointCloudScalar()
+  static FieldHandle CreatePointCloudScalar()
   {
     return loadFieldFromFile(TestResources::rootDir() / "Fields/point_cloud/scalar/pts_scalar.fld");
   }
 
-  std::vector<FieldHandle> fileExamples()
+  static FieldHandle CreateCurveMeshElem()
   {
-    return{ TetMesh1(), TetMesh2(), CreateTriSurfScalarOnNode(), CreateTriSurfVectorOnNode(), CreateTetMeshVectorOnNode(), CreateTetMeshScalarOnElem(), CreateTetMeshScalarOnNode(), CreateTetMeshTensorOnNode(), CreatePointCloudScalar() };
+    return loadFieldFromFile(TestResources::rootDir() / "Fields/test_curve_elem.fld");
+  }
+
+  static FieldHandle CreateImageNode()
+  {
+    return loadFieldFromFile(TestResources::rootDir() / "Fields/test_image_node.fld");
+  }
+
+  static FieldHandle CreateTriSurfFromCVRTI()
+  {
+    return loadFieldFromFile(TestResources::rootDir() / "Fields/CVRTI_cappedTorso/CappedTorso_192.fld");
+  }
+
+  static std::vector<FieldHandle> fileExamples()
+  {
+    return{ TetMesh1(), TetMesh2(), CreateTriSurfScalarOnNode(), CreateTriSurfVectorOnNode(), CreateTetMeshVectorOnNode(), 
+      CreateTetMeshScalarOnElem(), CreateTetMeshScalarOnNode(), CreateTetMeshTensorOnNode(), CreatePointCloudScalar(), 
+      CreateCurveMeshElem(), CreateImageNode()
+    };
   }
 };
 
@@ -299,6 +330,62 @@ TEST_F(FieldConversionTests, RoundTripTetVolNode)
   EXPECT_EQ("TetVolMesh<TetLinearLgn<Point>>", info.get_mesh_type_id());
   EXPECT_EQ("TetVolMesh", info.get_mesh_type());
   EXPECT_EQ("GenericField<TetVolMesh<TetLinearLgn<Point>>,TetLinearLgn<double>,vector<double>>", info.get_field_type_id());
+}
+
+// TODO: found a workaround for Brett's failing mesh (need to set data to all zeros)
+TEST_F(FieldConversionTests, DISABLED_RoundTripTriSurfCVRTI)
+{
+  auto expected = CreateTriSurfFromCVRTI();
+  {
+    FieldInformation info(expected);
+    EXPECT_TRUE(info.is_trisurf());
+    EXPECT_TRUE(info.is_double());
+    EXPECT_TRUE(info.is_scalar());
+    EXPECT_TRUE(info.is_linear());
+    EXPECT_EQ("TriSurfMesh<TriLinearLgn<Point>>", info.get_mesh_type_id());
+    EXPECT_EQ("TriSurfMesh", info.get_mesh_type());
+    EXPECT_EQ("GenericField<TriSurfMesh<TriLinearLgn<Point>>,TriLinearLgn<double>,vector<double>>", info.get_field_type_id());
+  }
+
+  auto pyField = convertFieldToPython(expected);
+  EXPECT_EQ(10, len(pyField.items()));
+  {
+    boost::python::extract<boost::python::dict> e(pyField);
+    auto pyMatlabDict = e();
+
+    auto length = len(pyMatlabDict);
+
+    auto keys = pyMatlabDict.keys();
+    auto values = pyMatlabDict.values();
+
+    for (int i = 0; i < length; ++i)
+    {
+      boost::python::extract<std::string> key_i(keys[i]);
+
+      boost::python::extract<std::string> value_i_string(values[i]);
+      boost::python::extract<boost::python::list> value_i_list(values[i]);
+      auto fieldName = key_i();
+      std::cout << "setting field " << fieldName << " " << (value_i_string.check() ? value_i_string() : "NOT A STRING") << std::endl;
+    }
+  }
+
+  FieldExtractor converter(pyField);
+
+  ASSERT_TRUE(converter.check());
+
+  auto actual = converter();
+  ASSERT_TRUE(actual != nullptr);
+  auto actualField = boost::dynamic_pointer_cast<Field>(actual);
+  ASSERT_TRUE(actualField != nullptr);
+
+  FieldInformation info(actualField);
+  EXPECT_TRUE(info.is_trisurf());
+  EXPECT_TRUE(info.is_double());
+  EXPECT_TRUE(info.is_scalar());
+  EXPECT_TRUE(info.is_linear());
+  EXPECT_EQ("TriSurfMesh<TriLinearLgn<Point>>", info.get_mesh_type_id());
+  EXPECT_EQ("TriSurfMesh", info.get_mesh_type());
+  EXPECT_EQ("GenericField<TriSurfMesh<TriLinearLgn<Point>>,TriLinearLgn<double>,vector<double>>", info.get_field_type_id());
 }
 
 TEST_F(FieldConversionTests, RoundTripTetVolCell)

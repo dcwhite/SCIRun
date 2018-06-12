@@ -35,18 +35,19 @@
 namespace SCIRun {
 	namespace Modules {
 			namespace Converters {
-	
+
 	class SCISHARE ConvertMatrixToString : public Dataflow::Networks::Module,
 		public Has1InputPort<MatrixPortTag>,
 		public Has1OutputPort<StringPortTag>
 		{
 			public:
 				ConvertMatrixToString();
-				virtual void setStateDefaults() {}
-				virtual void execute();
-				
+        virtual void setStateDefaults() override {}
+        virtual void execute() override;
+
 				INPUT_PORT(0, InputMatrix, Matrix);
 				OUTPUT_PORT(0, ResultString, String);
+				MODULE_TRAITS_AND_INFO(ModuleHasAlgorithm)
 		};
 }}}
 

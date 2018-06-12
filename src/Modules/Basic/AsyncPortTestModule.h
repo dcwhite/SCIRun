@@ -29,13 +29,13 @@
 #ifndef MODULES_BASIC_ASYNCPORTTESTMODULE_H
 #define MODULES_BASIC_ASYNCPORTTESTMODULE_H
 
-#include <Dataflow/Network/Module.h>
+#include <Dataflow/Network/ModuleWithAsyncDynamicPorts.h>
 #include <Modules/Basic/share.h>
 
 namespace SCIRun {
 namespace Modules {
 namespace Basic {
-  
+
   class SCISHARE AsyncPortTestModule : public SCIRun::Dataflow::Networks::ModuleWithAsyncDynamicPorts,
     public Has1InputPort<AsyncDynamicPortTag<FieldPortTag>>,
     public HasNoOutputPorts
@@ -46,9 +46,9 @@ namespace Basic {
     virtual void asyncExecute(const Dataflow::Networks::PortId& pid, Core::Datatypes::DatatypeHandle data) override;
     virtual void setStateDefaults() override {}
 
-    INPUT_PORT_DYNAMIC(0, AsyncField, LegacyField);
+    INPUT_PORT_DYNAMIC(0, AsyncField, Field);
 
-    static Dataflow::Networks::ModuleLookupInfo staticInfo_;
+    MODULE_TRAITS_AND_INFO(NoAlgoOrUI)
   protected:
     virtual void portRemovedSlotImpl(const Dataflow::Networks::PortId& pid) override {}
   private:

@@ -26,11 +26,13 @@
    DEALINGS IN THE SOFTWARE.
 */
 
+#include <es-log/trace-log.h>
 #include <Modules/Render/ViewScene.h>
 #include <Core/Datatypes/Geometry.h>
 #include <Core/Logging/Log.h>
 #include <Core/Datatypes/Color.h>
 #include <Core/Datatypes/DenseMatrix.h>
+#include <boost/thread.hpp>
 
 // Needed to fix conflict between define in X11 header
 // and eigen enum member.
@@ -44,22 +46,25 @@ using namespace Render;
 using namespace SCIRun::Core::Datatypes;
 using namespace SCIRun::Dataflow::Networks;
 using namespace SCIRun::Core::Thread;
+using namespace SCIRun::Core::Logging;
 
-const ModuleLookupInfo ViewScene::staticInfo_("ViewScene", "Render", "SCIRun");
+MODULE_INFO_DEF(ViewScene, Render, SCIRun)
+
 Mutex ViewScene::mutex_("ViewScene");
 
 ALGORITHM_PARAMETER_DEF(Render, GeomData);
 ALGORITHM_PARAMETER_DEF(Render, GeometryFeedbackInfo);
 ALGORITHM_PARAMETER_DEF(Render, ScreenshotData);
+ALGORITHM_PARAMETER_DEF(Render, MeshComponentSelection);
+ALGORITHM_PARAMETER_DEF(Render, ShowFieldStates);
 
 ViewScene::ViewScene() : ModuleWithAsyncDynamicPorts(staticInfo_, true), asyncUpdates_(0)
 {
+  RENDERER_LOG_FUNCTION_SCOPE;
   INITIALIZE_PORT(GeneralGeom);
-#ifdef BUILD_TESTING
   INITIALIZE_PORT(ScreenshotDataRed);
   INITIALIZE_PORT(ScreenshotDataGreen);
   INITIALIZE_PORT(ScreenshotDataBlue);
-#endif
 }
 
 void ViewScene::setStateDefaults()
@@ -78,7 +83,7 @@ void ViewScene::setStateDefaults()
   state->setValue(FogEnd, 0.71);
   state->setValue(FogColor, ColorRGB(0.0, 0.0, 1.0).toString());
   state->setValue(ShowScaleBar, false);
-  state->setValue(ScaleBarUnitValue, "mm");
+  state->setValue(ScaleBarUnitValue, std::string("mm"));
   state->setValue(ScaleBarLength, 1.0);
   state->setValue(ScaleBarHeight, 1.0);
   state->setValue(ScaleBarMultiplier, 1.0);
@@ -95,12 +100,18 @@ void ViewScene::setStateDefaults()
   state->setValue(PolygonOffset, 0.0);
   state->setValue(TextOffset, 0.0);
   state->setValue(FieldOfView, 20);
-  postStateChangeInternalSignalHookup();
-}
+  state->setValue(HeadLightOn, true);
+  state->setValue(Light1On, false);
+  state->setValue(Light2On, false);
+  state->setValue(Light3On, false);
+  state->setValue(HeadLightColor, ColorRGB(0.0, 0.0, 0.0).toString());
+  state->setValue(Light1Color, ColorRGB(0.0, 0.0, 0.0).toString());
+  state->setValue(Light2Color, ColorRGB(0.0, 0.0, 0.0).toString());
+  state->setValue(Light3Color, ColorRGB(0.0, 0.0, 0.0).toString());
+  state->setValue(ShowViewer, false);
 
-void ViewScene::postStateChangeInternalSignalHookup()
-{
-  get_state()->connect_state_changed([this]() { processViewSceneObjectFeedback(); });
+  get_state()->connectSpecificStateChanged(Parameters::GeometryFeedbackInfo, [this]() { processViewSceneObjectFeedback(); });
+  get_state()->connectSpecificStateChanged(Parameters::MeshComponentSelection, [this]() { processMeshComponentSelection(); });
 }
 
 void ViewScene::portRemovedSlotImpl(const PortId& pid)
@@ -125,9 +136,13 @@ void ViewScene::updateTransientList()
   {
     geoms.reset(new GeomList());
   }
-  auto activeHandles = activeGeoms_ | boost::adaptors::map_values;
+
   geoms->clear();
-  geoms->insert(activeHandles.begin(), activeHandles.end());
+  for (const auto& geomPair : activeGeoms_)
+  {
+    auto geom = geomPair.second;
+    geom->addToList(geom, *geoms);
+  }
 
   // Grab geometry inputs and pass them along in a transient value to the GUI
   // thread where they will be transported to Spire.
@@ -147,13 +162,15 @@ void ViewScene::updateTransientList()
 
 void ViewScene::asyncExecute(const PortId& pid, DatatypeHandle data)
 {
+  if (!data)
+    return;
   //lock for state modification
   {
-    LOG_DEBUG("ViewScene::asyncExecute before locking");
+    LOG_DEBUG("ViewScene::asyncExecute {} before locking", get_id().id_);
     Guard lock(mutex_.get());
     get_state()->setTransientValue(Parameters::ScreenshotData, boost::any(), false);
 
-    LOG_DEBUG("ViewScene::asyncExecute after locking");
+    LOG_DEBUG("ViewScene::asyncExecute {} after locking", get_id().id_);
 
     auto geom = boost::dynamic_pointer_cast<GeometryObject>(data);
     if (!geom)
@@ -162,27 +179,50 @@ void ViewScene::asyncExecute(const PortId& pid, DatatypeHandle data)
       return;
     }
 
+    {
+      auto iport = getInputPort(pid);
+      auto connectedModuleId = iport->connectedModuleId();
+      if (connectedModuleId->find("ShowField") != std::string::npos)
+      {
+        auto state = iport->stateFromConnectedModule();
+        syncMeshComponentFlags(*connectedModuleId, state);
+      }
+    }
+
     activeGeoms_[pid] = geom;
     updateTransientList();
   }
+
   get_state()->fireTransientStateChangeSignal();
   asyncUpdates_.fetch_add(1);
-  //std::cout << "asyncExecute " << asyncUpdates_ << std::endl;
 }
 
-#ifdef BUILD_TESTING
+void ViewScene::syncMeshComponentFlags(const std::string& connectedModuleId, ModuleStateHandle state)
+{
+  if (connectedModuleId.find("ShowField:") != std::string::npos)
+  {
+    auto map = transient_value_cast<ShowFieldStatesMap>(get_state()->getTransientValue(Parameters::ShowFieldStates));
+    map[connectedModuleId] = state;
+    get_state()->setTransientValue(Parameters::ShowFieldStates, map, false);
+  }
+}
+
 void ViewScene::execute()
 {
+  // hack for headless viewscene. Right now, it hangs/crashes/who knows.
+#ifdef BUILD_HEADLESS
+  sendOutput(ScreenshotDataRed, boost::make_shared<DenseMatrix>(0, 0));
+  sendOutput(ScreenshotDataGreen, boost::make_shared<DenseMatrix>(0, 0));
+  sendOutput(ScreenshotDataBlue, boost::make_shared<DenseMatrix>(0, 0));
+#else
   if (needToExecute())
   {
-    //std::cout << "1execute " << asyncUpdates_ << std::endl;
     const int maxAsyncWaitTries = 100; //TODO: make configurable for longer-running networks
     auto asyncWaitTries = 0;
     if (inputPorts().size() > 1) // only send screenshot if input is present
     {
       while (asyncUpdates_ < inputPorts().size() - 1)
       {
-        //std::cout << "2execute " << asyncUpdates_ << std::endl;
         asyncWaitTries++;
         if (asyncWaitTries == maxAsyncWaitTries)
           return; // nothing coming down the ports
@@ -193,11 +233,9 @@ void ViewScene::execute()
       auto state = get_state();
       do
       {
-        //std::cout << "3execute " << asyncUpdates_ << std::endl;
         screenshotDataOption = state->getTransientValue(Parameters::ScreenshotData);
         if (screenshotDataOption)
         {
-          //std::cout << "4execute found a non-empty" << asyncUpdates_ << std::endl;
           auto screenshotData = transient_value_cast<RGBMatrices>(screenshotDataOption);
           if (screenshotData.red)
           {
@@ -216,12 +254,10 @@ void ViewScene::execute()
     }
     asyncUpdates_ = 0;
 
-    //std::cout << "999execute " << asyncUpdates_ << std::endl;
-    //std::cout << "execute setting none " << asyncUpdates_ << std::endl;
     get_state()->setTransientValue(Parameters::ScreenshotData, boost::any(), false);
   }
-}
 #endif
+}
 
 void ViewScene::processViewSceneObjectFeedback()
 {
@@ -232,6 +268,17 @@ void ViewScene::processViewSceneObjectFeedback()
   if (newInfo)
   {
     auto vsInfo = transient_value_cast<ViewSceneFeedback>(newInfo);
+    sendFeedbackUpstreamAlongIncomingConnections(vsInfo);
+  }
+}
+
+void ViewScene::processMeshComponentSelection()
+{
+  auto state = get_state();
+  auto newInfo = state->getTransientValue(Parameters::MeshComponentSelection);
+  if (newInfo)
+  {
+    auto vsInfo = transient_value_cast<MeshComponentSelectionFeedback>(newInfo);
     sendFeedbackUpstreamAlongIncomingConnections(vsInfo);
   }
 }
@@ -266,3 +313,12 @@ const AlgorithmParameterName ViewScene::StereoFusion("StereoFusion");
 const AlgorithmParameterName ViewScene::PolygonOffset("PolygonOffset");
 const AlgorithmParameterName ViewScene::TextOffset("TextOffset");
 const AlgorithmParameterName ViewScene::FieldOfView("FieldOfView");
+const AlgorithmParameterName ViewScene::HeadLightOn("HeadLightOn");
+const AlgorithmParameterName ViewScene::Light1On("Light1On");
+const AlgorithmParameterName ViewScene::Light2On("Light2On");
+const AlgorithmParameterName ViewScene::Light3On("Light3On");
+const AlgorithmParameterName ViewScene::HeadLightColor("HeadLightColor");
+const AlgorithmParameterName ViewScene::Light1Color("Light1Color");
+const AlgorithmParameterName ViewScene::Light2Color("Light2Color");
+const AlgorithmParameterName ViewScene::Light3Color("Light3Color");
+const AlgorithmParameterName ViewScene::ShowViewer("ShowViewer");

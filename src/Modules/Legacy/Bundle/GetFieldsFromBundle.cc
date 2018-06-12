@@ -37,8 +37,10 @@ using namespace SCIRun::Modules::Bundles;
 using namespace SCIRun::Dataflow::Networks;
 using namespace SCIRun::Core::Algorithms;
 
-const ModuleLookupInfo GetFieldsFromBundle::staticInfo_("GetFieldsFromBundle", "Bundle", "SCIRun");
-AlgorithmParameterName GetFieldsFromBundle::FieldNameList("FieldNameList");
+MODULE_INFO_DEF(GetFieldsFromBundle, Bundle, SCIRun)
+
+const AlgorithmParameterName GetFieldsFromBundle::FieldNameList("FieldNameList");
+
 const AlgorithmParameterName GetFieldsFromBundle::FieldNames[] = {
   AlgorithmParameterName("field1-name"),
   AlgorithmParameterName("field2-name"),
@@ -76,8 +78,6 @@ void GetFieldsFromBundle::execute()
 
   if (needToExecute())
   {
-    update_state(Executing);
-
     auto state = get_state();
     state->setTransientValue(FieldNameList.name(), bundle->getFieldNames());
 

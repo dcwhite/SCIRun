@@ -39,6 +39,7 @@ SET(Interface_Modules_Fields_FORMS
   CreateFieldData.ui
   CalculateFieldData.ui
   InterfaceWithCleaverDialog.ui
+  InterfaceWithCleaver2.ui
   InterfaceWithTetGen.ui
   SetFieldDataDialog.ui
   SetFieldDataToConstantValue.ui
@@ -71,6 +72,8 @@ SET(Interface_Modules_Fields_FORMS
   ConvertMatricesToMesh.ui
   ReportFieldGeometryMeasures.ui
   RefineTetMeshLocally.ui
+  GetMeshQualityField.ui
+  CleanupTetMeshDialog.ui
 )
 
 SET(Interface_Modules_Fields_HEADERS
@@ -85,6 +88,7 @@ SET(Interface_Modules_Fields_HEADERS
   SplitFieldByDomainDialog.h
   SplitFieldByConnectedRegionDialog.h
   InterfaceWithCleaverDialog.h
+  InterfaceWithCleaver2Dialog.h
   SetFieldDataDialog.h
   SetFieldDataToConstantValueDialog.h
   MapFieldDataFromElemToNodeDialog.h
@@ -117,6 +121,8 @@ SET(Interface_Modules_Fields_HEADERS
   ConvertMatricesToMeshDialog.h
   ReportFieldGeometryMeasuresDialog.h
   RefineTetMeshLocallyDialog.h
+  GetMeshQualityFieldDialog.h
+  CleanupTetMeshDialog.h
 )
 
 SET(Interface_Modules_Fields_SOURCES
@@ -132,6 +138,7 @@ SET(Interface_Modules_Fields_SOURCES
   SplitFieldByDomainDialog.cc
   SplitFieldByConnectedRegionDialog.cc
   InterfaceWithCleaverDialog.cc
+  InterfaceWithCleaver2Dialog.cc
   SetFieldDataDialog.cc
   SetFieldDataToConstantValueDialog.cc
   MapFieldDataFromElemToNodeDialog.cc
@@ -162,6 +169,8 @@ SET(Interface_Modules_Fields_SOURCES
   ConvertMatricesToMeshDialog.cc
   ReportFieldGeometryMeasuresDialog.cc
   RefineTetMeshLocallyDialog.cc
+  GetMeshQualityFieldDialog.cc
+  CleanupTetMeshDialog.cc
 )
 
 IF(WITH_TETGEN)
@@ -173,8 +182,8 @@ IF(WITH_TETGEN)
   )
 ENDIF(WITH_TETGEN)
 
-QT4_WRAP_UI(Interface_Modules_Fields_FORMS_HEADERS ${Interface_Modules_Fields_FORMS})
-QT4_WRAP_CPP(Interface_Modules_Fields_HEADERS_MOC ${Interface_Modules_Fields_HEADERS})
+QT_WRAP_UI(Interface_Modules_Fields_FORMS_HEADERS "${Interface_Modules_Fields_FORMS}")
+QT_WRAP_CPP(Interface_Modules_Fields_HEADERS_MOC "${Interface_Modules_Fields_HEADERS}")
 
 SCIRUN_ADD_LIBRARY(Interface_Modules_Fields
   ${Interface_Modules_Fields_HEADERS}

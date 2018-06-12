@@ -42,13 +42,15 @@ namespace SCIRun {
       {
       public:
         BuildSurfaceLaplacianMatrix();
-        virtual void setStateDefaults() {}
-        virtual void execute();
+        virtual void setStateDefaults() override {}
+        virtual void execute() override;
 
-        INPUT_PORT(0, Source, LegacyField);
+        INPUT_PORT(0, Source, Field);
         OUTPUT_PORT(0, ResultMatrix, Matrix);
 
-        const static Dataflow::Networks::ModuleLookupInfo staticInfo_;
+        LEGACY_BIOPSE_MODULE
+
+        MODULE_TRAITS_AND_INFO(NoAlgoOrUI)
       };
     }
   }

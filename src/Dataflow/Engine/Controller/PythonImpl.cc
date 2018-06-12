@@ -44,12 +44,15 @@
 #include <Core/Datatypes/SparseRowMatrix.h>
 #include <Core/Datatypes/Legacy/Field/Field.h>
 #include <Core/Matlab/matlabfile.h>
+#include <Core/Utils/CurrentFileName.h>
 
 #include <boost/range/adaptors.hpp>
 #include <boost/range/algorithm/copy.hpp>
 #include <Core/Python/PythonDatatypeConverter.h>
+#include <Core/Python/PythonInterpreter.h>
 
 using namespace SCIRun;
+using namespace SCIRun::Core;
 using namespace SCIRun::Core::Algorithms;
 using namespace SCIRun::Core::Commands;
 using namespace SCIRun::Core::Thread;
@@ -359,6 +362,7 @@ namespace
         input_ = boost::make_shared<PyPortsImpl>(module_, true, nec_);
         output_ = boost::make_shared<PyPortsImpl>(module_, false, nec_);
       }
+      creationTime_ = boost::posix_time::second_clock::local_time();
     }
 
     virtual std::string id() const override
@@ -501,10 +505,16 @@ namespace
       return input_;
     }
 
+    virtual boost::posix_time::ptime creationTime() const override
+    {
+      return creationTime_;
+    }
+
   private:
     ModuleHandle module_;
     NetworkEditorController& nec_;
     boost::shared_ptr<PyPortsImpl> input_, output_;
+    boost::posix_time::ptime creationTime_;
   };
 }
 
@@ -514,7 +524,7 @@ namespace SCIRun {
       class PythonImplImpl
       {
       public:
-        std::map<std::string, std::map<int, std::map<std::string, std::map<int, std::string>>>> connectionIdLookup_; //seems silly
+        std::map<std::string, std::map<int, std::map<std::string, std::map<int, std::string>>>> connectionIdLookup_;
       };
     }
   }
@@ -590,6 +600,7 @@ std::vector<boost::shared_ptr<PyModule>> PythonImpl::moduleList() const
 {
   std::vector<boost::shared_ptr<PyModule>> modules;
   boost::copy(modules_ | boost::adaptors::map_values, std::back_inserter(modules));
+  std::sort(modules.begin(), modules.end(), [](const boost::shared_ptr<PyModule> lhs, const boost::shared_ptr<PyModule> rhs) { return lhs->creationTime() < rhs->creationTime(); });
   return modules;
 }
 
@@ -601,8 +612,10 @@ boost::shared_ptr<PyModule> PythonImpl::findModule(const std::string& id) const
 
 std::string PythonImpl::executeAll(const ExecutableLookup* lookup)
 {
+  cmdFactory_->create(GlobalCommands::DisableViewScenes)->execute();
+
   nec_.executeAll(lookup);
-  return "Execution started.";
+  return "Execution started."; //TODO: attach log for execution ended event.
 }
 
 std::string PythonImpl::connect(const std::string& moduleIdFrom, int fromIndex, const std::string& moduleIdTo, int toIndex)
@@ -652,12 +665,23 @@ std::string PythonImpl::loadNetwork(const std::string& filename)
   //TODO: provide more informative python return value string
 }
 
+std::string PythonImpl::currentNetworkFile() const
+{
+  return SCIRun::Core::getCurrentFileName();
+}
+
 std::string PythonImpl::importNetwork(const std::string& filename)
 {
   auto import = cmdFactory_->create(GlobalCommands::ImportNetworkFile);
   import->set(Variables::Filename, filename);
   return import->execute() ? (filename + " imported") : "Import failed";
   //TODO: provide more informative python return value string
+}
+
+std::string PythonImpl::runScript(const std::string& filename)
+{
+  PythonInterpreter::Instance().run_script("exec(open('" + filename + "').read())");
+  return filename + " executed.";
 }
 
 std::string PythonImpl::quit(bool force)

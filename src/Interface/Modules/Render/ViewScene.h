@@ -34,9 +34,6 @@ DEALINGS IN THE SOFTWARE.
 
 #include "Interface/Modules/Render/ui_ViewScene.h"
 
-#include <boost/shared_ptr.hpp>
-
-#include <Modules/Basic/SendScalarModuleState.h>
 #include <Modules/Visualization/TextBuilder.h>
 #include <Interface/Modules/Base/ModuleDialogGeneric.h>
 #include <Interface/Modules/Render/ViewSceneControlsDock.h>
@@ -69,15 +66,15 @@ namespace SCIRun {
         Dataflow::Networks::ModuleStateHandle state,
         QWidget* parent = nullptr);
 
+      void adjustToolbar() override;
     Q_SIGNALS:
       void newGeometryValueForwarder();
-      void mousePressSignalForTestingGeometryObjectFeedback(int x, int y);
+      void mousePressSignalForTestingGeometryObjectFeedback(int x, int y, const std::string& selName);
 
-      protected Q_SLOTS:
+    protected Q_SLOTS:
       void menuMouseControlChanged(int index);
       void autoViewClicked();
       void newGeometryValue();
-      void newOwnGeometryValue();
       void autoViewOnLoadChecked(bool value);
       void useOrthoViewChecked(bool value);
       void showOrientationChecked(bool value);
@@ -90,16 +87,13 @@ namespace SCIRun {
       void setTransparencySortTypeContinuous(bool index);
       void setTransparencySortTypeUpdate(bool index);
       void setTransparencySortTypeLists(bool index);
-      void handleUnselectedItem(const QString& name);
-      void handleSelectedItem(const QString& name);
-      void selectAllClicked();
-      void deselectAllClicked();
       void adjustZoomSpeed(int value);
       void invertZoomClicked(bool value);
       void screenshotClicked();
       void saveNewGeometryChanged(int state);
-      void sendGeometryFeedbackToState(int x, int y);
-      //Clipping Plane 
+      void sendGeometryFeedbackToState(int x, int y, const std::string& selName);
+      void updateMeshComponentSelection(const QString& moduleId, const QString& component, bool selected);
+      //Clipping Plane
       void setClippingPlaneIndex(int index);
       void setClippingPlaneVisible(bool value);
       void setClippingPlaneFrameOn(bool value);
@@ -141,18 +135,36 @@ namespace SCIRun {
       void setPolygonOffset(int value);
       void setTextOffset(int value);
       void setFieldOfView(int value);
+      void setLightPosition(int index);
+      void setLightColor(int index);
+      void toggleHeadLight(bool value);
+      void toggleLight1(bool value);
+      void toggleLight2(bool value);
+      void toggleLight3(bool value);
+      void resizingDone();
+
+      void lockRotationToggled();
+      void lockPanningToggled();
+      void lockZoomToggled();
+      void lockAllTriggered();
+      void unlockAllTriggered();
+      void toggleLockColor(bool locked);
 
     protected:
-      virtual void mousePressEvent(QMouseEvent* event);
-      virtual void mouseReleaseEvent(QMouseEvent* event);
-      virtual void mouseMoveEvent(QMouseEvent* event);
-      virtual void wheelEvent(QWheelEvent* event);
-      virtual void keyPressEvent(QKeyEvent* event);
-      virtual void keyReleaseEvent(QKeyEvent*event);
-      virtual void closeEvent(QCloseEvent* evt) override;
-      virtual void showEvent(QShowEvent* evt) override;
-      virtual void hideEvent(QHideEvent* evt) override;
-      virtual void contextMenuEvent(QContextMenuEvent* evt) override {}
+      void mousePressEvent(QMouseEvent* event) override;
+      void mouseReleaseEvent(QMouseEvent* event) override;
+      void mouseMoveEvent(QMouseEvent* event) override;
+      void wheelEvent(QWheelEvent* event) override;
+      void keyPressEvent(QKeyEvent* event) override;
+      void keyReleaseEvent(QKeyEvent*event) override;
+      void closeEvent(QCloseEvent* evt) override;
+      void showEvent(QShowEvent* evt) override;
+      void hideEvent(QHideEvent* evt) override;
+      void contextMenuEvent(QContextMenuEvent* evt) override {}
+      void resizeEvent(QResizeEvent *event) override;
+
+      void pullSpecial() override;
+
     private:
       struct ClippingPlane {
         bool visible, showFrame, reverseNormal;
@@ -167,29 +179,33 @@ namespace SCIRun {
         double projLength;
       };
 
+      void setInitialLightValues();
+      QColor checkColorSetting(std::string& rgb, QColor defaultColor);
       void selectObject(const int x, const int y);
-      void restoreObjColor();
+      std::string restoreObjColor();
       void updatClippingPlaneDisplay();
-      bool isObjectUnselected(const std::string& name);
       void addToolBar();
       void addAutoViewButton();
       void addScreenshotButton();
       void addViewBarButton();
+      void addControlLockButton();
+      void addToolbarButton(QPushButton* button);
       void addViewBar();
       void addViewOptions();
       void addConfigurationButton();
-      void addConfigurationDock(const QString& viewName);
+      void addConfigurationDock();
       void setupClippingPlanes();
       void setupMaterials();
       void setupScaleBar();
       void setupRenderTabValues();
-      void hideConfigurationDock();
       void takeScreenshot();
       void sendScreenshotDownstreamForTesting();
 
       void lookDownAxisX(int upIndex, glm::vec3& up);
       void lookDownAxisY(int upIndex, glm::vec3& up);
       void lookDownAxisZ(int upIndex, glm::vec3& up);
+
+      void toggleLightOnOff(int index, bool value);
 
       // update scale bar geometries
       Graphics::Datatypes::GeometryHandle buildGeometryScaleBar();
@@ -217,8 +233,6 @@ namespace SCIRun {
       int counter_;
       bool shown_;
       bool hideViewBar_;
-      bool showConfiguration_;
-      bool itemValueChanged_;
       bool invertZoom_;
       bool shiftdown_;
       bool selected_;
@@ -227,15 +241,20 @@ namespace SCIRun {
       QColor fogColor_;
       ScaleBar scaleBar_;
       std::vector<ClippingPlane> clippingPlanes_;
-      std::vector<std::string> unselectedObjectNames_;
-      std::vector<std::string> previousObjectNames_;
       class Screenshot* screenshotTaker_;
       bool saveScreenshotOnNewGeometry_;
+      bool pulledSavedVisibility_ {false};
+      QTimer resizeTimer_;
 
       //geometries
       Modules::Visualization::TextBuilder textBuilder_;
       Graphics::Datatypes::GeometryHandle scaleBarGeom_;
       std::vector<Graphics::Datatypes::GeometryHandle> clippingPlaneGeoms_;
+      QAction* lockRotation_;
+      QAction* lockPan_;
+      QAction* lockZoom_;
+      QPushButton* controlLock_;
+      QPushButton* autoViewButton_;
 
       friend class ViewSceneControlsDock;
 

@@ -34,9 +34,11 @@
 #include <QPointer>
 #include <QTextCursor>
 #include <QTextEdit>
+#include <QMimeData>
 #include <QScrollBar>
 #include <QVBoxLayout>
 
+#include <Interface/Application/NetworkEditor.h>
 #include <Core/Python/PythonInterpreter.h>
 #include <Interface/Application/PythonConsoleWidget.h>
 
@@ -49,7 +51,7 @@ typedef QPointer< PythonConsoleEdit > PythonConsoleEditQWeakPointer;
 class PythonConsoleEdit : public QTextEdit
 {
 public:
-  explicit PythonConsoleEdit(PythonConsoleWidget* parent);
+  PythonConsoleEdit(NetworkEditor* rootNetworkEditor, PythonConsoleWidget* parent);
 
   virtual void keyPressEvent(QKeyEvent* e);
   //virtual void focusOutEvent( QFocusEvent* e );
@@ -71,6 +73,8 @@ private:
   void print_errorImpl(const QString& text);
   void print_commandImpl(const QString& text);
 
+  NetworkEditor* rootNetworkEditor_;
+
 public:
   // The beginning of the area of interactive input, outside which
   // changes can't be made to the text edit contents.
@@ -87,8 +91,8 @@ public:
   //	static void PrintCommand( PythonConsoleEditQWeakPointer edit, const std::string& text );
 };
 
-PythonConsoleEdit::PythonConsoleEdit(PythonConsoleWidget* parent) :
-QTextEdit(parent)
+PythonConsoleEdit::PythonConsoleEdit(NetworkEditor* rootNetworkEditor, PythonConsoleWidget* parent) :
+QTextEdit(parent), rootNetworkEditor_(rootNetworkEditor)
 {
   this->interactive_position_ = this->document_end();
   this->setTabChangesFocus(false);
@@ -159,7 +163,7 @@ void PythonConsoleEdit::keyPressEvent(QKeyEvent* e)
   {
     if (!history_area)
     {
-      const QMimeData* const clipboard = QApplication::clipboard()->mimeData();
+      auto clipboard = QApplication::clipboard()->mimeData();
       const QString text = clipboard->text();
       if (!text.isNull())
       {
@@ -302,7 +306,14 @@ void PythonConsoleEdit::issue_command()
   c.insertText("\n");
 
   this->interactive_position_ = this->document_end();
-  PythonInterpreter::Instance().run_string(command.toStdString());
+
+  NetworkEditor::InEditingContext iec(rootNetworkEditor_);
+  auto lines = command.split(QRegExp("[\r\n]"),QString::SkipEmptyParts);
+  for (const auto& line : lines)
+  {
+    if (!line.isEmpty())
+      PythonInterpreter::Instance().run_string(line.toStdString());
+  }
 }
 
 void PythonConsoleEdit::promptImpl(const QString& text)
@@ -384,14 +395,14 @@ public:
   PythonConsoleEdit* console_edit_;
 };
 
-PythonConsoleWidget::PythonConsoleWidget(QWidget* parent) :
+PythonConsoleWidget::PythonConsoleWidget(NetworkEditor* rootNetworkEditor, QWidget* parent) :
 QDockWidget(parent),
 private_(new PythonConsoleWidgetPrivate)
 {
-  this->private_->console_edit_ = new PythonConsoleEdit(this);
-  setWidget(this->private_->console_edit_);
+  private_->console_edit_ = new PythonConsoleEdit(rootNetworkEditor, this);
+  setWidget(private_->console_edit_);
 
-  this->setMinimumSize(500, 500);
+  setMinimumSize(500, 500);
 
   setWindowTitle("Python console");
 
@@ -400,7 +411,7 @@ private_(new PythonConsoleWidgetPrivate)
   PythonInterpreter::Instance().error_signal_.connect(boost::bind(&PythonConsoleEdit::print_error, private_->console_edit_, _1));
 
   showBanner();
-  PythonInterpreter::Instance().run_string("import SCIRunPythonAPI; from SCIRunPythonAPI import *");
+  PythonInterpreter::Instance().importSCIRunLibrary();
 }
 
 PythonConsoleWidget::~PythonConsoleWidget()

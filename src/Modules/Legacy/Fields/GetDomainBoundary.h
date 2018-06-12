@@ -48,16 +48,16 @@ namespace SCIRun {
       public:
         GetDomainBoundary();
 
-        virtual void execute();
-        virtual void setStateDefaults();
+        virtual void execute() override;
+        virtual void setStateDefaults() override;
 
-        INPUT_PORT(0, InputField, LegacyField);
+        INPUT_PORT(0, InputField, Field);
         INPUT_PORT(1, MinValue, Double);
         INPUT_PORT(2, MaxValue, Double);
         INPUT_PORT(3, ElemLink, SparseRowMatrix);
-        OUTPUT_PORT(0, BoundaryField, LegacyField);
+        OUTPUT_PORT(0, BoundaryField, Field);
 
-        static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+        MODULE_TRAITS_AND_INFO(ModuleHasUIAndAlgorithm)
       };
 
     }

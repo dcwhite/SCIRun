@@ -55,9 +55,9 @@ namespace Teem {
     virtual void setStateDefaults() override;
 
     INPUT_PORT(0, InputNrrd, NrrdDataType);
-    OUTPUT_PORT(0, OutputField, LegacyField);
+    OUTPUT_PORT(0, OutputField, Field);
 
-    static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+    MODULE_TRAITS_AND_INFO(ModuleHasUI)
   };
 
 }}}

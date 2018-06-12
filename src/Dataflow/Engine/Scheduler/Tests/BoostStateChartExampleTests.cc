@@ -403,7 +403,7 @@ public:
     return moduleState_.currentStateValue();
   }
 
-  virtual boost::signals2::connection connectExecutionStateChanged(const ExecutionStateChangedSignalType::slot_type& subscriber)
+  virtual boost::signals2::connection connectExecutionStateChanged(const ExecutionStateChangedSignalType::slot_type& subscriber) override
   {
     return signal_.connect(subscriber);
   }
@@ -440,6 +440,9 @@ public:
   {
     return moduleState_.currentColor();
   }
+
+  Value expandedState() const override { return currentState(); }
+  void setExpandedState(Value state) override { }
 
 private:
   ModuleState moduleState_;

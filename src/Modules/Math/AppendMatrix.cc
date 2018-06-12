@@ -34,29 +34,34 @@ using namespace SCIRun::Modules::Math;
 using namespace SCIRun::Core::Datatypes;
 using namespace SCIRun::Core::Algorithms;
 using namespace SCIRun::Dataflow::Networks;
+using namespace SCIRun;
 
-AppendMatrixModule::AppendMatrixModule() : Module(ModuleLookupInfo("AppendMatrix", "Math", "SCIRun")) 
+AppendMatrix::AppendMatrix() : Module(ModuleLookupInfo("AppendMatrix", "Math", "SCIRun"))
 {
   INITIALIZE_PORT(FirstMatrix);
   INITIALIZE_PORT(SecondMatrix);
-  INITIALIZE_PORT(NextMatrix);
+  INITIALIZE_PORT(InputMatrices);
   INITIALIZE_PORT(ResultMatrix);
 }
 
-void AppendMatrixModule::setStateDefaults()
+void AppendMatrix::setStateDefaults()
 {
   auto state = get_state();
   state->setValue(Variables::RowsOrColumns, 0);
 }
 
-void AppendMatrixModule::execute()
+void AppendMatrix::execute()
 {
   auto matrixLHS = getRequiredInput(FirstMatrix);
   auto matrixRHS = getRequiredInput(SecondMatrix);
   auto param = get_state()->getValue(Variables::RowsOrColumns).toInt();
-
+  auto input_matrices = getOptionalDynamicInputs(InputMatrices);
   algo().set(Variables::RowsOrColumns, param);
-  auto output = algo().run(withInputData((FirstMatrix, matrixLHS)(SecondMatrix, matrixRHS)));
-
-  sendOutputFromAlgorithm(ResultMatrix, output);
+  
+  if (needToExecute())
+  {
+   AlgorithmOutput output;
+   output = algo().run(withInputData((FirstMatrix, matrixLHS)(SecondMatrix, matrixRHS)(InputMatrices, input_matrices)));    
+   sendOutputFromAlgorithm(ResultMatrix, output);
+  }
 }

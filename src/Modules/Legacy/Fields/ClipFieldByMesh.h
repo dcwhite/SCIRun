@@ -46,12 +46,12 @@ namespace SCIRun {
         virtual void execute() override;
         virtual void setStateDefaults() override {};
 
-        INPUT_PORT(0, InputField, LegacyField);
-        INPUT_PORT(1, ObjectField, LegacyField);
-        OUTPUT_PORT(0, OutputField, LegacyField);
+        INPUT_PORT(0, InputField, Field);
+        INPUT_PORT(1, ObjectField, Field);
+        OUTPUT_PORT(0, OutputField, Field);
         OUTPUT_PORT(1, Mapping, Matrix);
 
-        static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+        MODULE_TRAITS_AND_INFO(NoAlgoOrUI)
       };
 
     }

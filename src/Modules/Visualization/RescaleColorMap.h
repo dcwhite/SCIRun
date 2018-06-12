@@ -53,22 +53,21 @@ namespace SCIRun
   {
     namespace Visualization
     {
-
       class SCISHARE RescaleColorMap : public SCIRun::Dataflow::Networks::Module,
         public Has2InputPorts<ColorMapPortTag, DynamicPortTag<FieldPortTag>>,
         public Has1OutputPort<ColorMapPortTag>
       {
       public:
         RescaleColorMap();
-        virtual void execute();
-        virtual void setStateDefaults();
-        virtual bool hasDynamicPorts() const override { return true; }
+        virtual void execute() override;
+        virtual void setStateDefaults() override;
+        HAS_DYNAMIC_PORTS
         INPUT_PORT(0, ColorMapObject, ColorMap);
-        INPUT_PORT_DYNAMIC(1, Field, LegacyField);
+        INPUT_PORT_DYNAMIC(1, Field, Field);
 
         OUTPUT_PORT(0, ColorMapOutput, ColorMap);
 
-        static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+        MODULE_TRAITS_AND_INFO(ModuleHasUI)
       };
     }
   }

@@ -30,7 +30,7 @@ DEALINGS IN THE SOFTWARE.
 #ifndef MODULES_VISUALIZATION_SHOW_FIELD_H
 #define MODULES_VISUALIZATION_SHOW_FIELD_H
 
-#include <Dataflow/Network/Module.h>
+#include <Dataflow/Network/GeometryGeneratingModule.h>
 #include <Core/Thread/Interruptible.h>
 #include <Modules/Visualization/share.h>
 
@@ -55,13 +55,13 @@ namespace SCIRun {
         class GeometryBuilder;
       }
 
-      class SCISHARE ShowFieldModule : public Dataflow::Networks::GeometryGeneratingModule,
+      class SCISHARE ShowField : public Dataflow::Networks::GeometryGeneratingModule,
         public Has2InputPorts<FieldPortTag, ColorMapPortTag>,
-        public Has1OutputPort<GeometryPortTag>,
+        public Has2OutputPorts<GeometryPortTag, OsprayGeometryPortTag>,
         public Core::Thread::Interruptible
       {
       public:
-        ShowFieldModule();
+        ShowField();
         virtual void execute() override;
 
         static const Core::Algorithms::AlgorithmParameterName FieldName;
@@ -83,6 +83,9 @@ namespace SCIRun {
         static const Core::Algorithms::AlgorithmParameterName FaceTransparencyValue;
         static const Core::Algorithms::AlgorithmParameterName EdgeTransparencyValue;
         static const Core::Algorithms::AlgorithmParameterName NodeTransparencyValue;
+        static const Core::Algorithms::AlgorithmParameterName FacesColoring;
+        static const Core::Algorithms::AlgorithmParameterName NodesColoring;
+        static const Core::Algorithms::AlgorithmParameterName EdgesColoring;
         static const Core::Algorithms::AlgorithmParameterName SphereScaleValue;
         static const Core::Algorithms::AlgorithmParameterName CylinderResolution;
         static const Core::Algorithms::AlgorithmParameterName SphereResolution;
@@ -103,15 +106,17 @@ namespace SCIRun {
         static const Core::Algorithms::AlgorithmParameterName UseFaceNormals;
 
 
-        INPUT_PORT(0, Field, LegacyField);
+        INPUT_PORT(0, Field, Field);
         INPUT_PORT(1, ColorMapObject, ColorMap);
         OUTPUT_PORT(0, SceneGraph, GeometryObject);
+        OUTPUT_PORT(1, OspraySceneGraph, OsprayGeometryObject);
 
-        static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+        MODULE_TRAITS_AND_INFO(ModuleHasUI)
 
         virtual void setStateDefaults() override;
       private:
         void updateAvailableRenderOptions(FieldHandle field);
+        void processMeshComponentSelection(const Core::Datatypes::ModuleFeedback& var);
 
         boost::shared_ptr<detail::GeometryBuilder> builder_;
       };

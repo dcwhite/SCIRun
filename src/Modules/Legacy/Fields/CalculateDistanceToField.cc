@@ -42,8 +42,7 @@ using namespace SCIRun::Dataflow::Networks;
 using namespace SCIRun::Core::Datatypes;
 using namespace SCIRun;
 
-
-const ModuleLookupInfo CalculateDistanceToField::staticInfo_("CalculateDistanceToField", "ChangeFieldData", "SCIRun");
+MODULE_INFO_DEF(CalculateDistanceToField, ChangeFieldData, SCIRun)
 
 CalculateDistanceToField::CalculateDistanceToField() : Module(staticInfo_)
 {
@@ -71,8 +70,6 @@ CalculateDistanceToField::execute()
 
   if (needToExecute())
   {
-    update_state(Executing);
-
     setAlgoBoolFromState(Parameters::Truncate);
     setAlgoDoubleFromState(Parameters::TruncateDistance);
     setAlgoOptionFromState(Parameters::BasisType);

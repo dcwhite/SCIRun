@@ -58,7 +58,7 @@ ReadBundleDialog::ReadBundleDialog(const std::string& name, ModuleStateHandle st
 
 void ReadBundleDialog::pullSpecial()
 {
-  fileNameLineEdit_->setText(QString::fromStdString(state_->getValue(Variables::Filename).toString()));
+  pullFilename(state_, fileNameLineEdit_, {});
 }
 
 void ReadBundleDialog::pushFileNameToState()
@@ -69,7 +69,7 @@ void ReadBundleDialog::pushFileNameToState()
 
 void ReadBundleDialog::openFile()
 {
-  auto types = Modules::DataIO::ReadBundleModule::fileTypeList();
+  auto types = Modules::DataIO::ReadBundle::fileTypeList();
   QString typesQ(QString::fromStdString(types));
   auto file = QFileDialog::getOpenFileName(this, "Open Bundle File", dialogDirectory(), typesQ, &selectedFilter_);
   if (file.length() > 0)

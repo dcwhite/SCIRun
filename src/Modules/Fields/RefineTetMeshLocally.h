@@ -6,7 +6,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -29,8 +29,8 @@
 #ifndef MODULES_FIELDS_RefineTetMeshLocally_H__
 #define MODULES_FIELDS_RefineTetMeshLocally_H__
 
-//#include <Core/Algorithms/Base/AlgorithmBase.h>
 #include <Dataflow/Network/Module.h>
+#include <Modules/BrainStimulator/share.h> // for help url link change
 #include <Modules/Fields/share.h>
 
 namespace SCIRun {
@@ -38,7 +38,7 @@ namespace SCIRun {
 				namespace Fields {
 
 	/// @class RefineTetMeshLocally
-	/// @brief Module to refine parts of Cleaver meshes 
+	/// @brief Module to refine parts of Cleaver meshes
 
       class SCISHARE RefineTetMeshLocally : public Dataflow::Networks::Module,
 	public Has1InputPort<FieldPortTag>,
@@ -47,12 +47,15 @@ namespace SCIRun {
       public:
         RefineTetMeshLocally();
 
-        virtual void execute();
-        virtual void setStateDefaults(); 
+        void execute() override;
+        void setStateDefaults() override;
 
-        INPUT_PORT(0, InputField, LegacyField);
-	OUTPUT_PORT(0, OutputField, LegacyField);
-	static const Dataflow::Networks::ModuleLookupInfo staticInfo_; 
+        INPUT_PORT(0, InputField, Field);
+	      OUTPUT_PORT(0, OutputField, Field);
+
+        NEW_BRAIN_STIMULATOR_MODULE
+
+        MODULE_TRAITS_AND_INFO(ModuleHasUIAndAlgorithm)
       };
 
     }

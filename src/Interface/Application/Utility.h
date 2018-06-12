@@ -47,8 +47,10 @@ namespace Gui
   QColor to_color(const std::string& str, int alpha = 255);
 
   QColor defaultTagColor(int tag);
-  typedef std::function<QColor(int)> TagColorFunc;
+
+  using TagColorFunc = std::function<QColor(int)>;
   using PreexecuteFunc = std::function<void()>;
+  using TagNameFunc = std::function<QString(int)>;
 
   QString colorToString(const QColor& color);
 
@@ -82,6 +84,24 @@ namespace Gui
   const char* insertNewModuleActionTypePropertyName();
 
   const Qt::GlobalColor CLIPBOARD_COLOR = Qt::cyan;
+
+  // arbitrary values
+  enum TagValues
+  {
+    MinTag = 0,
+    MaxTag = 9,
+    NumberOfTags = 10,
+    TagDataKey = 123,
+    TagLayerKey = 100,
+    CurrentTagKey = 101,
+    NoTag = -1,
+    AllTags = -50,
+    ClearTags = -77,
+    ShowGroups = -100,
+    HideGroups = -101
+  };
+
+  inline bool validTag(int tag) { return MinTag <= tag && tag <= MaxTag; }
 }
 
 }

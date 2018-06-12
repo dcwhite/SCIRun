@@ -28,11 +28,13 @@
 
 #include <Modules/Python/InterfaceWithPython.h>
 #include <Modules/Python/PythonObjectForwarder.h>
+#ifdef BUILD_WITH_PYTHON
 #include <Core/Python/PythonInterpreter.h>
 // ReSharper disable once CppUnusedIncludeDirective
 #include <Core/Datatypes/Legacy/Field/Field.h>
 #include <boost/algorithm/string.hpp>
 #include <Dataflow/Engine/Python/NetworkEditorPythonAPI.h>
+#endif
 
 using namespace SCIRun::Modules::Python;
 using namespace SCIRun::Core::Datatypes;
@@ -56,10 +58,11 @@ ALGORITHM_PARAMETER_DEF(Python, PythonOutputField1Name);
 ALGORITHM_PARAMETER_DEF(Python, PythonOutputField2Name);
 ALGORITHM_PARAMETER_DEF(Python, PythonOutputField3Name);
 
-const ModuleLookupInfo InterfaceWithPython::staticInfo_("InterfaceWithPython", "Python", "SCIRun");
+MODULE_INFO_DEF(InterfaceWithPython, Python, SCIRun)
+
 Mutex InterfaceWithPython::lock_("InterfaceWithPython");
 
-InterfaceWithPython::InterfaceWithPython() : Module(staticInfo_) 
+InterfaceWithPython::InterfaceWithPython() : Module(staticInfo_)
 {
   INITIALIZE_PORT(InputMatrix);
   INITIALIZE_PORT(InputField);
@@ -78,18 +81,19 @@ InterfaceWithPython::InterfaceWithPython() : Module(staticInfo_)
 void InterfaceWithPython::setStateDefaults()
 {
   auto state = get_state();
-  state->setValue(Parameters::PythonCode, std::string("# Insert Python code here using the SCIRun API."));
+
+  state->setValue(Parameters::PythonCode, std::string("# Insert your Python code here. The SCIRun API package is automatically imported."));
   state->setValue(Parameters::PollingIntervalMilliseconds, 200);
   state->setValue(Parameters::NumberOfRetries, 50);
 
   state->setValue(Parameters::PythonOutputField1Name, std::string("fieldOutput1"));
   state->setValue(Parameters::PythonOutputField2Name, std::string("fieldOutput2"));
   state->setValue(Parameters::PythonOutputField3Name, std::string("fieldOutput3"));
-                                    
+
   state->setValue(Parameters::PythonOutputString1Name, std::string("stringOutput1"));
   state->setValue(Parameters::PythonOutputString2Name, std::string("stringOutput2"));
   state->setValue(Parameters::PythonOutputString3Name, std::string("stringOutput3"));
-                                    
+
   state->setValue(Parameters::PythonOutputMatrix1Name, std::string("matrixOutput1"));
   state->setValue(Parameters::PythonOutputMatrix2Name, std::string("matrixOutput2"));
   state->setValue(Parameters::PythonOutputMatrix3Name, std::string("matrixOutput3"));
@@ -108,7 +112,7 @@ std::string InterfaceWithPython::convertOutputSyntax(const std::string& code) co
 
   for (const auto& var : outputVarsToCheck)
   {
-    auto varName = get_state()->getValue(var).toString();
+    auto varName = cstate()->getValue(var).toString();
 
     auto regexString = "(\\h*)" + varName + " = (.+)";
     //std::cout << "REGEX STRING " << regexString << std::endl;
@@ -134,7 +138,7 @@ std::string InterfaceWithPython::convertInputSyntax(const std::string& code) con
   {
     if (port->nconnections() > 0)
     {
-      auto inputName = get_state()->getValue(Name(port->id().toString())).toString();
+      auto inputName = cstate()->getValue(Name(port->id().toString())).toString();
       //std::cout << "FOUND INPUT VARIABLE NAME: " << inputName << " for port " << port->id().toString() << std::endl;
       //std::cout << "NEED TO REPLACE " << inputName << " with\n\t" << "scirun_get_module_input_value(\"" << get_id() << "\", \"" << port->id().toString() << "\")" << std::endl;
       auto index = code.find(inputName);
@@ -150,6 +154,7 @@ std::string InterfaceWithPython::convertInputSyntax(const std::string& code) con
 
 void InterfaceWithPython::execute()
 {
+#ifdef BUILD_WITH_PYTHON
   auto matrices = getOptionalDynamicInputs(InputMatrix);
   auto fields = getOptionalDynamicInputs(InputField);
   auto strings = getOptionalDynamicInputs(InputString);
@@ -194,5 +199,7 @@ void InterfaceWithPython::execute()
     if (oport_connected(PythonField3))
       impl.waitForOutputFromTransientState(state->getValue(Parameters::PythonOutputField3Name).toString(), PythonString1, PythonMatrix1, PythonField3);
   }
+#else
+  error("This module does nothing, turn on BUILD_WITH_PYTHON to enable.");
+#endif
 }
-

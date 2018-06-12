@@ -29,7 +29,7 @@
 #ifndef MODULES_RENDER_VIEWSCENE_H
 #define MODULES_RENDER_VIEWSCENE_H
 
-#include <Dataflow/Network/Module.h>
+#include <Dataflow/Network/ModuleWithAsyncDynamicPorts.h>
 #include <Core/Thread/Mutex.h>
 #include <Core/Algorithms/Base/AlgorithmMacros.h>
 #include <Modules/Render/share.h>
@@ -45,6 +45,8 @@ namespace SCIRun
         ALGORITHM_PARAMETER_DECL(GeomData);
         ALGORITHM_PARAMETER_DECL(GeometryFeedbackInfo);
         ALGORITHM_PARAMETER_DECL(ScreenshotData);
+        ALGORITHM_PARAMETER_DECL(MeshComponentSelection);
+        ALGORITHM_PARAMETER_DECL(ShowFieldStates);
       }
     }
   }
@@ -59,6 +61,8 @@ namespace Render {
     Core::Datatypes::DenseMatrixHandle blue;
   };
 
+  using ShowFieldStatesMap = std::map<std::string, Dataflow::Networks::ModuleStateHandle>;
+
 /// @class ViewScene
 /// @brief The ViewScene displays interactive graphical output to the computer screen.
 ///
@@ -69,18 +73,13 @@ namespace Render {
 
   class SCISHARE ViewScene : public Dataflow::Networks::ModuleWithAsyncDynamicPorts,
     public Has1InputPort<AsyncDynamicPortTag<GeometryPortTag>>,
-#ifdef BUILD_TESTING
     public Has3OutputPorts<MatrixPortTag, MatrixPortTag, MatrixPortTag>
-#else
-    public HasNoOutputPorts
-#endif
   {
   public:
     ViewScene();
     virtual void asyncExecute(const Dataflow::Networks::PortId& pid, Core::Datatypes::DatatypeHandle data) override;
     virtual void setStateDefaults() override;
 
-    static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
     static const Core::Algorithms::AlgorithmParameterName BackgroundColor;
     static const Core::Algorithms::AlgorithmParameterName Ambient;
     static const Core::Algorithms::AlgorithmParameterName Diffuse;
@@ -111,26 +110,36 @@ namespace Render {
     static const Core::Algorithms::AlgorithmParameterName PolygonOffset;
     static const Core::Algorithms::AlgorithmParameterName TextOffset;
     static const Core::Algorithms::AlgorithmParameterName FieldOfView;
+    static const Core::Algorithms::AlgorithmParameterName HeadLightOn;
+    static const Core::Algorithms::AlgorithmParameterName Light1On;
+    static const Core::Algorithms::AlgorithmParameterName Light2On;
+    static const Core::Algorithms::AlgorithmParameterName Light3On;
+    static const Core::Algorithms::AlgorithmParameterName HeadLightColor;
+    static const Core::Algorithms::AlgorithmParameterName Light1Color;
+    static const Core::Algorithms::AlgorithmParameterName Light2Color;
+    static const Core::Algorithms::AlgorithmParameterName Light3Color;
+    static const Core::Algorithms::AlgorithmParameterName ShowViewer;
+
 
     INPUT_PORT_DYNAMIC(0, GeneralGeom, GeometryObject);
-#ifdef BUILD_TESTING
     OUTPUT_PORT(0, ScreenshotDataRed, DenseMatrix);
     OUTPUT_PORT(1, ScreenshotDataGreen, DenseMatrix);
     OUTPUT_PORT(2, ScreenshotDataBlue, DenseMatrix);
     virtual void execute() override;
-#endif
+
+    MODULE_TRAITS_AND_INFO(ModuleHasUI)
 
     static Core::Thread::Mutex mutex_;
 
-    typedef std::set<Core::Datatypes::GeometryBaseHandle> GeomList;
-    typedef boost::shared_ptr<GeomList> GeomListPtr;
+    typedef SharedPointer<Core::Datatypes::GeomList> GeomListPtr;
     typedef std::map<Dataflow::Networks::PortId, Core::Datatypes::GeometryBaseHandle> ActiveGeometryMap;
   protected:
     virtual void portRemovedSlotImpl(const Dataflow::Networks::PortId& pid) override;
-    virtual void postStateChangeInternalSignalHookup() override;
   private:
     void processViewSceneObjectFeedback();
+    void processMeshComponentSelection();
     void updateTransientList();
+    void syncMeshComponentFlags(const std::string& connectedModuleId, Dataflow::Networks::ModuleStateHandle state);
     ActiveGeometryMap activeGeoms_;
     std::atomic<int> asyncUpdates_;
   };

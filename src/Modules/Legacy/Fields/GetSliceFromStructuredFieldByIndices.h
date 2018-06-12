@@ -44,6 +44,9 @@ namespace SCIRun {
         ALGORITHM_PARAMETER_DECL(Index_j);
         ALGORITHM_PARAMETER_DECL(Index_k);
         ALGORITHM_PARAMETER_DECL(Axis_ijk);
+        ALGORITHM_PARAMETER_DECL(SpinBoxReexecute);
+        ALGORITHM_PARAMETER_DECL(AxisReexecute);
+        ALGORITHM_PARAMETER_DECL(SliderReexecute);
       }}}
 
   namespace Modules {
@@ -56,15 +59,15 @@ namespace SCIRun {
       public:
         GetSliceFromStructuredFieldByIndices();
 
-        virtual void execute();
-        virtual void setStateDefaults();
+        virtual void execute() override;
+        virtual void setStateDefaults() override;
 
-        INPUT_PORT(0, InputField, LegacyField);
+        INPUT_PORT(0, InputField, Field);
         INPUT_PORT(1, InputMatrix, Matrix);
-        OUTPUT_PORT(0, OutputField, LegacyField);
+        OUTPUT_PORT(0, OutputField, Field);
         OUTPUT_PORT(1, OutputMatrix, Matrix);
 
-        static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+        MODULE_TRAITS_AND_INFO(ModuleHasUI)
       };
     }
   }

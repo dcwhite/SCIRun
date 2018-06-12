@@ -36,7 +36,7 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
   CommandLineParser parser;
 
   const std::string expectedHelp =
-    "SCIRun5 basic options:\n"
+    "SCIRun 5 command line options:\n"
     "  -h [ --help ]           prints usage information\n"
     "  -v [ --version ]        prints out version information\n"
     "  -e [ --execute ]        executes the given network on startup\n"
@@ -44,18 +44,19 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     "                          done\n"
     "  -d [ --datadir ] arg    scirun data directory\n"
     "  -r [ --regression ] arg regression test a network\n"
-    "  -l [ --logfile ] arg    add output messages to a logfile--TODO\n"
     "  -1 [ --most-recent ]    load the most recently used file\n"
     "  -i [ --interactive ]    interactive mode\n"
-    "  -x [ --headless ]       disable GUI (Qt still needed, for now)\n"
+    "  -x [ --headless ]       disable GUI\n"
     "  --input-file arg        SCIRun Network Input File\n"
-    "  -s [ --script ] arg     SCIRun Python Script\n"
-    "  --no_splash             Turn off splash screen\n"
+    "  -s [ --script ] arg     Python script--interpret and drop into embedded \n"
+    "                          console\n"
+    "  -S [ --Script ] arg     Python script--interpret and quit after one SCIRun \n"
+    "                          execution pass\n"
+    "  -0 [ --no_splash ]      Turn off splash screen\n"
     "  --verbose               Turn on debug log information\n"
-    "  --threadMode arg        network execution threading mode--DEVELOPER USE ONLY\n"
-    "  --reexecuteMode arg     network reexecution mode--DEVELOPER USE ONLY\n"
-    "  --frameInitLimit arg    ViewScene frame init limit--increase if renderer \n"
-    "                          fails\n"
+    "  --guiExpandFactor arg   Expansion factor for high resolution displays\n"
+    "  --max-cores arg         Limit the number of cores used by multithreaded \n"
+    "                          algorithms\n"
     "  --list-modules          print list of available modules\n";
 
   EXPECT_EQ(expectedHelp, parser.describe());
@@ -64,7 +65,7 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     const char* argv[] = {"scirun.exe", "--help", "net.srn5"};
     int argc = sizeof(argv)/sizeof(char*);
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
+    auto aph = parser.parse(argc, argv);
 
     EXPECT_TRUE(aph->help());
     EXPECT_EQ("net.srn5", aph->inputFiles()[0]);
@@ -74,7 +75,7 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     const char* argv[] = {"scirun.exe", "-h", "net.srn5"};
     int argc = sizeof(argv)/sizeof(char*);
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
+    auto aph = parser.parse(argc, argv);
 
     EXPECT_TRUE(aph->help());
     EXPECT_EQ("net.srn5", aph->inputFiles()[0]);
@@ -84,7 +85,7 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     const char* argv[] = {"scirun.exe", "--version"};
     int argc = sizeof(argv)/sizeof(char*);
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
+    auto aph = parser.parse(argc, argv);
 
     EXPECT_TRUE(aph->version());
     EXPECT_FALSE(aph->help());
@@ -95,7 +96,7 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     const char* argv[] = {"scirun.exe", "-v"};
     int argc = sizeof(argv)/sizeof(char*);
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
+    auto aph = parser.parse(argc, argv);
 
     EXPECT_TRUE(aph->version());
     EXPECT_FALSE(aph->help());
@@ -106,7 +107,7 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     const char* argv[] = {"scirun.exe", "-e", "net.srn5"};
     int argc = sizeof(argv)/sizeof(char*);
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
+    auto aph = parser.parse(argc, argv);
 
     EXPECT_FALSE(aph->help());
     EXPECT_TRUE(aph->executeNetwork());
@@ -117,7 +118,7 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     const char* argv[] = {"scirun.exe", "-e", "net1.srn5", "net2.srn5"};
     int argc = sizeof(argv)/sizeof(char*);
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
+    auto aph = parser.parse(argc, argv);
 
     EXPECT_FALSE(aph->help());
     EXPECT_TRUE(aph->executeNetwork());
@@ -129,7 +130,7 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     const char* argv[] = {"scirun.exe", "-E", "net.srn5"};
     int argc = sizeof(argv)/sizeof(char*);
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
+    auto aph = parser.parse(argc, argv);
 
     EXPECT_FALSE(aph->help());
     EXPECT_TRUE(aph->executeNetworkAndQuit());
@@ -137,32 +138,53 @@ TEST(ScirunCommandLineSpecTest, CanReadBasicOptions)
     EXPECT_EQ("net.srn5", aph->inputFiles()[0]);
   }
 
-  {
-    const char* argv[] = {"scirun.exe", "--threadMode", "serial"};
-    int argc = sizeof(argv)/sizeof(char*);
+  // {
+  //   const char* argv[] = {"scirun.exe", "--threadMode", "serial"};
+  //   int argc = sizeof(argv)/sizeof(char*);
+  //
+  //   auto aph = parser.parse(argc, argv);
+  //
+  //   ASSERT_TRUE(!!aph->developerParameters()->threadMode());
+  //   EXPECT_EQ("serial", *aph->developerParameters()->threadMode());
+  // }
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
-
-    ASSERT_TRUE(!!aph->threadMode());
-    EXPECT_EQ("serial", *aph->threadMode());
-  }
-
-  {
-    const char* argv[] = {"scirun.exe", "--threadMode=serial"};
-    int argc = sizeof(argv)/sizeof(char*);
-
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
-
-    ASSERT_TRUE(!!aph->threadMode());
-    EXPECT_EQ("serial", *aph->threadMode());
-  }
+  // {
+  //   const char* argv[] = {"scirun.exe", "--threadMode=serial"};
+  //   int argc = sizeof(argv)/sizeof(char*);
+  //
+  //   auto aph = parser.parse(argc, argv);
+  //
+  //   ASSERT_TRUE(!!aph->developerParameters()->threadMode());
+  //   EXPECT_EQ("serial", *aph->developerParameters()->threadMode());
+  // }
 
   {
     const char* argv[] = { "scirun.exe", "-1" };
     int argc = sizeof(argv) / sizeof(char*);
 
-    ApplicationParametersHandle aph = parser.parse(argc, argv);
+    auto aph = parser.parse(argc, argv);
 
     ASSERT_TRUE(aph->loadMostRecentFile());
+  }
+
+   {
+     const char* argv[] = { "scirun.exe", "-s", "scr1.py" };
+     int argc = sizeof(argv) / sizeof(char*);
+
+     auto aph = parser.parse(argc, argv);
+
+     EXPECT_TRUE(!!aph->pythonScriptFile());
+     EXPECT_EQ("scr1.py", *aph->pythonScriptFile());
+   }
+
+  {
+    const char* argv[] = { "scirun.exe", "-S", "scr1.py" };
+    int argc = sizeof(argv) / sizeof(char*);
+
+    auto aph = parser.parse(argc, argv);
+
+    EXPECT_TRUE(!!aph->pythonScriptFile());
+    EXPECT_EQ("scr1.py", *aph->pythonScriptFile());
+    EXPECT_TRUE(aph->quitAfterOneScriptedExecution());
   }
 }

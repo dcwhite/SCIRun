@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Called with a single parameter in the form "alpha.XX" or "beta.A"
 MINPARAMS=1
 
 if [ $# -lt "$MINPARAMS" ]
 then
   echo
-  echo "This script needs at least $MINPARAMS command-line arguments!"
+  echo "Called with a single parameter of the form \"alpha.XX\" or \"beta.A\""
+  echo
   exit 0
 fi
 

@@ -73,15 +73,14 @@ void SimpleSink::setGlobalPortCachingFlag(bool value)
 
 void SimpleSink::invalidateAll()
 {
-  for (SimpleSink* sink : instances_)
+  for (auto sink : instances_)
     sink->invalidateProvider();
 }
 
 DatatypeHandleOption SimpleSink::receive()
 {
-  if (DatatypeHandle strong = weakData_.lock())
+  if (auto strong = weakData_.lock())
   {
-    //std::cout << "\tweak pointer converted to strong in Sink.receive" << std::endl;
     return strong;
   }
   return DatatypeHandleOption();
@@ -89,25 +88,27 @@ DatatypeHandleOption SimpleSink::receive()
 
 void SimpleSink::setData(DatatypeHandle data)
 {
-  if (DatatypeHandle strong = weakData_.lock())
+  if (auto strong = weakData_.lock())
   {
     if (data)
     {
-      //std::cout << "\tSink.setData hasChanged is " << hasChanged_ << std::endl;
-      //std::cout << "\tSink.setData old id is " << strong->id() << " new id is " << data->id() << std::endl;
       hasChanged_ = strong->id() != data->id();
-      //std::cout << "\tSink.setData hasChanged set to " << hasChanged_ << std::endl;
     }
   }
   else if (data)
   {
     hasChanged_ = true;
-    //std::cout << "\tSink.setData: no previous weakData, hasChanged set to " << hasChanged_ << std::endl;
   }
 
   weakData_ = data;
   if (data && hasChanged_ && checkForNewDataOnSetting_)
     dataHasChanged_(data);
+}
+
+void SimpleSink::forceFireDataHasChanged()
+{
+  auto data = weakData_.lock();
+  dataHasChanged_(data);
 }
 
 DatatypeSinkInterface* SimpleSink::clone() const
@@ -117,9 +118,8 @@ DatatypeSinkInterface* SimpleSink::clone() const
 
 bool SimpleSink::hasChanged() const
 {
-  bool val = hasChanged_;
+  auto val = hasChanged_;
   hasChanged_ = false;
-  //std::cout << "\tSink.hasChanged() returns " << val << ", hasChanged set to " << hasChanged_ << std::endl;
   return val;
 }
 
@@ -162,7 +162,7 @@ std::set<SimpleSource*> SimpleSource::instances_;
 
 void SimpleSource::clearAllSources()
 {
-  for (SimpleSource* source : instances_)
+  for (auto source : instances_)
     source->data_.reset();
 }
 

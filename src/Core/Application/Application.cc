@@ -34,16 +34,21 @@
 #include <Modules/Factory/HardCodedModuleFactory.h>
 #include <Core/Algorithms/Factory/HardCodedAlgorithmFactory.h>
 #include <Dataflow/State/SimpleMapModuleState.h>
-#include <Dataflow/Network/Module.h>  //TODO move Reex
+#include <Dataflow/Network/ModuleReexecutionStrategies.h>
 #include <Dataflow/Engine/Scheduler/DesktopExecutionStrategyFactory.h>
 #include <Core/Command/GlobalCommandBuilderFromCommandLine.h>
 #include <Core/Logging/Log.h>
+#include <Core/Logging/ApplicationHelper.h>
 #include <Core/IEPlugin/IEPluginInit.h>
 #include <Core/Utils/Exception.h>
 #include <Core/Application/Session/Session.h>
 #include <Core/Application/Version.h>
 #include <Core/Python/PythonInterpreter.h>
 #include <Core/Application/Preferences/Preferences.h>
+#include <Dataflow/Serialization/Network/XMLSerializer.h>
+#include <Dataflow/Serialization/Network/NetworkDescriptionSerialization.h>
+#include <boost/algorithm/string.hpp>
+#include <Core/Thread/Parallel.h>
 
 using namespace SCIRun::Core;
 using namespace SCIRun::Core::Logging;
@@ -68,7 +73,6 @@ namespace SCIRun
       ApplicationParametersHandle parameters_;
       NetworkEditorControllerHandle controller_;
       GlobalCommandFactoryHandle cmdFactory_;
-      //void start_eai();
     };
   }
 }
@@ -81,7 +85,7 @@ Application::Application() :
   private_->app_filepath_ = boost::filesystem::current_path();
   //std::cout << "exec path set to: " << private_->app_filepath_ << std::endl;
   auto configDir = configDirectory();
-  Log::setLogDirectory(configDir);
+  LogSettings::Instance().setLogDirectory(configDir);
   SessionManager::Instance().initialize(configDir);
   SessionManager::Instance().session()->beginSession();
 }
@@ -94,18 +98,18 @@ Application::~Application()
 void Application::shutdown()
 {
   if (!private_)
-    Log::get() << NOTICE << "Application shutdown called with null internals" << std::endl;
+    GeneralLog::Instance().get()->info("Application shutdown called with null internals");
   try
   {
     private_.reset();
   }
   catch (std::exception& e)
   {
-    Log::get() << EMERG << "Unhandled exception during application shutdown: " << e.what() << std::endl;
+    GeneralLog::Instance().get()->critical("Unhandled exception during application shutdown: {}", e.what());
   }
   catch (...)
   {
-    Log::get() << EMERG << "Unknown unhandled exception during application shutdown" << std::endl;
+    GeneralLog::Instance().get()->critical("Unknown unhandled exception during application shutdown");
   }
 }
 
@@ -151,7 +155,14 @@ void Application::readCommandLine(int argc, const char* argv[])
 
   private_->parameters_ = private_->parser.parse(argc, argv);
 
-  Logging::Log::get().setVerbose(parameters()->verboseMode());
+  //TODO: move this special logic somewhere else
+  {
+    auto maxCoresOption = private_->parameters_->developerParameters()->maxCores();
+    if (maxCoresOption)
+      Thread::Parallel::SetMaximumCores(*maxCoresOption);
+      
+    LogSettings::Instance().setVerbose(parameters()->verboseMode());
+  }
 }
 
 namespace
@@ -162,16 +173,22 @@ namespace
   class HardCodedPythonTestCommand : public ParameterizedCommand
   {
   public:
+    HardCodedPythonTestCommand(const std::string& script, bool enabled) : script_(script), enabled_(enabled) {}
     virtual bool execute() override
     {
-      auto script = Preferences::Instance().postModuleAddScript_temporarySolution.val();
-      if (!script.empty())
+      if (!enabled_)
+        return false;
+
+      if (!script_.empty())
       {
-        PythonInterpreter::Instance().run_string("import SCIRunPythonAPI; from SCIRunPythonAPI import *");
-        PythonInterpreter::Instance().run_string(script);
+        PythonInterpreter::Instance().importSCIRunLibrary();
+        PythonInterpreter::Instance().run_script(script_);
       }
       return true;
     }
+  private:
+    std::string script_;
+    bool enabled_;
   };
 
   class HardCodedPythonFactory : public NetworkEventCommandFactory
@@ -179,10 +196,21 @@ namespace
   public:
     virtual CommandHandle create(NetworkEventCommands type) const override
     {
+      const auto& prefs = Preferences::Instance();
       switch (type)
       {
       case NetworkEventCommands::PostModuleAdd:
-        return boost::make_shared<HardCodedPythonTestCommand>();
+        return boost::make_shared<HardCodedPythonTestCommand>(
+          prefs.postModuleAdd.script.val(),
+          prefs.postModuleAdd.enabled.val());
+      case NetworkEventCommands::OnNetworkLoad:
+        return boost::make_shared<HardCodedPythonTestCommand>(
+          prefs.onNetworkLoad.script.val(),
+          prefs.onNetworkLoad.enabled.val());
+      case NetworkEventCommands::ApplicationStart:
+        return boost::make_shared<HardCodedPythonTestCommand>(
+          prefs.applicationStart.script.val(),
+          prefs.applicationStart.enabled.val());
       }
       return nullptr;
     }
@@ -211,18 +239,14 @@ NetworkEditorControllerHandle Application::controller()
     /// @todo: these all get configured
     ModuleFactoryHandle moduleFactory(new HardCodedModuleFactory);
     ModuleStateFactoryHandle sf(new SimpleMapModuleStateFactory);
-    ExecutionStrategyFactoryHandle exe(new DesktopExecutionStrategyFactory(parameters()->threadMode()));
+    ExecutionStrategyFactoryHandle exe(new DesktopExecutionStrategyFactory(parameters()->developerParameters()->threadMode()));
     AlgorithmFactoryHandle algoFactory(new HardCodedAlgorithmFactory);
-    ReexecuteStrategyFactoryHandle reexFactory(new DynamicReexecutionStrategyFactory(parameters()->reexecuteMode()));
+    ReexecuteStrategyFactoryHandle reexFactory(new DynamicReexecutionStrategyFactory(parameters()->developerParameters()->reexecuteMode()));
     auto eventCmdFactory(makeNetworkEventCommandFactory());
     private_->controller_.reset(new NetworkEditorController(moduleFactory, sf, exe, algoFactory, reexFactory, private_->cmdFactory_, eventCmdFactory));
 
     /// @todo: sloppy way to initialize this but similar to v4, oh well
     IEPluginManager::Initialize();
-
-    /// @todo split out into separate piece
-    // TODO: turn off until Matlab services are converted.
-    // private_->start_eai();
   }
   return private_->controller_;
 }
@@ -275,7 +299,24 @@ std::string Application::moduleList()
       }
     }
   }
-  return ostr.str();;
+  return ostr.str();
+}
+
+bool Application::moduleNameExists(const std::string& name)
+{
+  auto map = controller()->getAllAvailableModuleDescriptions();
+  for (const auto& p1 : map)
+  {
+    for (const auto& p2 : p1.second)
+    {
+      for (const auto& p3 : p2.second)
+      {
+        if (boost::iequals(name, p3.first))
+          return true;
+      }
+    }
+  }
+  return false;
 }
 
 boost::filesystem::path Application::configDirectory() const
@@ -298,140 +339,16 @@ bool Application::get_user_name( std::string& user_name ) const
   return applicationHelper.get_user_name(user_name);
 }
 
-/*
-int Application::GetMajorVersion()
+std::string SaveFileCommandHelper::saveImpl(const std::string& filename)
 {
-	return CORE_APPLICATION_MAJOR_VERSION;
+  auto fileNameWithExtension = filename;
+  if (!boost::algorithm::ends_with(fileNameWithExtension, ".srn5"))
+    fileNameWithExtension += ".srn5";
+
+  auto file = Application::Instance().controller()->saveNetwork();
+
+  if (!XMLSerializer::save_xml(*file, fileNameWithExtension, "networkFile"))
+    return "";
+
+  return fileNameWithExtension;
 }
-
-int Application::GetMinorVersion()
-{
-	return CORE_APPLICATION_MINOR_VERSION;
-}
-
-int Application::GetPatchVersion()
-{
-	return CORE_APPLICATION_PATCH_VERSION;
-}
-
-bool Application::Is64Bit()
-{
-	return ( sizeof(void *) == 8 );
-}
-
-bool Application::Is32Bit()
-{
-	return ( sizeof(void *) == 4 );
-}
-
-std::string Application::GetApplicationName()
-{
-	return CORE_APPLICATION_NAME;
-}
-
-std::string Application::GetReleaseName()
-{
-	return CORE_APPLICATION_RELEASE;
-}
-
-std::string Application::GetApplicationNameAndVersion()
-{
-	return GetApplicationName() + " " + GetReleaseName() + " " + GetVersion();
-}
-
-std::string Application::GetAbout()
-{
-	return CORE_APPLICATION_ABOUT;
-}
-*/
-
-#if 0 //shouldn't need this anymore
-// Services start up...
-void ApplicationPrivate::start_eai()
-{
-  // Create a database of all available services. The next piece of code
-  // scans both the SCIRun as well as the Packages directories to find
-  // services that need to be started. Services allow communication with
-  // thirdparty software and are Threads that run asychronously with
-  // with the rest of SCIRun. Since the thirdparty software may be running
-  // on a different platform it allows for connecting to remote machines
-  // and running the service on a different machine
-  ServiceDBHandle servicedb(new ServiceDB);
-  // load all services and find all makers
-  servicedb->loadpackages();
-  // activate all services
-  servicedb->activateall();
-
-  // Services are started and created by the ServiceManager,
-  // which will be launched here
-  // Two competing managers will be started,
-  // one for purely internal usage and one that
-  // communicates over a socket.
-  // The latter will only be created if a port is set.
-  // If the current instance of SCIRun should not provide any services
-  // to other instances of SCIRun over the internet,
-  // the second manager will not be launched
-
-  IComAddressHandle internaladdress(new IComAddress("internal","servicemanager"));
-
-// Only build log file if needed for debugging
-#ifdef DEBUG
-  const char *chome = sci_getenv("HOME");
-  std::string scidir("");
-  if (chome)
-    scidir = chome+std::string("/SCIRun/");
-
-  // A log file is not necessary but handy for debugging purposes
-  ServiceLogHandle internallogfile(new ServiceLog(scidir+"scirun_internal_servicemanager.log"));
-
-  ServiceManagerHandle internal_service_manager(new ServiceManager(servicedb, internaladdress, internallogfile));
-#else
-  ServiceManager internal_service_manager(servicedb, internaladdress);
-#endif
-
-  boost::thread t_int(internal_service_manager);
-  t_int.detach();
-
-
-#ifdef SCIRUN4_CODE_TO_BE_ENABLED_LATER
-  // Use the following environment setting to switch on IPv6 support
-  // Most machines should be running a dual-host stack for the internet
-  // connections, so it should not hurt to run in IPv6 mode. In most case
-  // ipv4 address will work as well.
-  // It might be useful
-  std::string ipstr(sci_getenv_p("SCIRUN_SERVICE_IPV6")?"ipv6":"");
-
-  // Start an external service as well
-  const char *serviceport_str = sci_getenv("SCIRUN_SERVICE_PORT");
-  // If its not set in the env, we're done
-  if (!serviceport_str) return;
-
-  // The protocol for conencting has been called "scirun"
-  // In the near future this should be replaced with "sciruns" for
-  // a secure version which will run over ssl.
-
-  // A log file is not necessary but handy for debugging purposes
-
-  IComAddress externaladdress("scirun","",serviceport_str,ipstr);
-
-#ifdef DEBUG
-  ServiceLogHandle externallogfile =
-    new ServiceLog(scidir+"scirun_external_servicemanager.log");
-
-  ServiceManager* external_service_manager =
-    new ServiceManager(servicedb,externaladdress,externallogfile);
-#else
-  ServiceManager* external_service_manager =
-    new ServiceManager(servicedb,externaladdress);
-
-#endif
-
-  Thread* t_ext =
-    new Thread(external_service_manager,"external service manager",
-		  0, Thread::NotActivated);
-  t_ext->setStackSize(1024*20);
-  t_ext->activate(false);
-  t_ext->detach();
-#endif
-}
-#endif

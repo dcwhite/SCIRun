@@ -54,18 +54,24 @@ CommandHandle ConsoleGlobalCommandFactory::create(GlobalCommands type) const
     return boost::make_shared<PrintVersionCommand>();
   case GlobalCommands::LoadNetworkFile:
     return boost::make_shared<LoadFileCommandConsole>();
+  case GlobalCommands::PrintModules:
+    return boost::make_shared<PrintModulesCommand>();
   case GlobalCommands::SaveNetworkFile:
     return boost::make_shared<SaveFileCommandConsole>();
   case GlobalCommands::RunPythonScript:
     return boost::make_shared<RunPythonScriptCommandConsole>();
   case GlobalCommands::ExecuteCurrentNetwork:
     return boost::make_shared<ExecuteCurrentNetworkCommandConsole>();
+  case GlobalCommands::SetupDataDirectory:
+    return boost::make_shared<SetupDataDirectoryCommand>();
   case GlobalCommands::InteractiveMode:
     return boost::make_shared<InteractiveModeCommandConsole>();
   case GlobalCommands::SetupQuitAfterExecute:
     return boost::make_shared<QuitAfterExecuteCommandConsole>();
   case GlobalCommands::QuitCommand:
     return boost::make_shared<QuitCommandConsole>();
+  case GlobalCommands::DisableViewScenes:
+    return boost::make_shared<NothingCommand>();
   default:
     THROW_INVALID_ARGUMENT("Unknown global command type.");
   }

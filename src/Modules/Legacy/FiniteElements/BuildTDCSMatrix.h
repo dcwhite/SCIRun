@@ -6,7 +6,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -43,17 +43,21 @@ namespace SCIRun {
       {
       public:
         BuildTDCSMatrix();
-        virtual void setStateDefaults() {}
-        virtual void execute();
+
+        void setStateDefaults() override
+        {}
+
+        void execute() override;
 
         INPUT_PORT(0, FEM_Stiffness_Matrix, SparseRowMatrix);
-        INPUT_PORT(1, FEM_Mesh, LegacyField);
+        INPUT_PORT(1, FEM_Mesh, Field);
         INPUT_PORT(2, Electrode_Element, DenseMatrix);
         INPUT_PORT(3, Electrode_Element_Type, DenseMatrix);
         INPUT_PORT(4, Electrode_Element_Definition, DenseMatrix);
         INPUT_PORT(5, Contact_Impedance, DenseMatrix);
         OUTPUT_PORT(0, TDCSMatrix, Matrix);
 
+        MODULE_TRAITS_AND_INFO(ModuleHasAlgorithm)
       };
 
     }

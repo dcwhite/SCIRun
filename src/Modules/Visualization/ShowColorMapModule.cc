@@ -40,13 +40,13 @@ using namespace Core::Algorithms;
 using namespace Core::Geometry;
 using namespace Graphics::Datatypes;
 
-ShowColorMapModule::ShowColorMapModule() : GeometryGeneratingModule(ModuleLookupInfo("ShowColorMap", "Visualization", "SCIRun"))
+ShowColorMap::ShowColorMap() : GeometryGeneratingModule(ModuleLookupInfo("ShowColorMap", "Visualization", "SCIRun"))
 {
   INITIALIZE_PORT(ColorMapObject);
   INITIALIZE_PORT(GeometryOutput);
 }
 
-void ShowColorMapModule::setStateDefaults()
+void ShowColorMap::setStateDefaults()
 {
   auto state = get_state();
   state->setValue(DisplaySide, 0);
@@ -64,13 +64,13 @@ void ShowColorMapModule::setStateDefaults()
   state->setValue(YTranslation, 0);
 }
 
-void ShowColorMapModule::execute()
+void ShowColorMap::execute()
 {
   auto colorMap = getRequiredInput(ColorMapObject);
   if (needToExecute())
   {
     std::ostringstream ostr;
-    ostr << get_id() << "_" <<
+    ostr << get_id() << "$" <<
       colorMap->getColorMapInvert() << colorMap->getColorMapName() << colorMap->getColorMapRescaleScale() <<
       colorMap->getColorMapRescaleShift() << colorMap->getColorMapResolution() << colorMap.get() <<
       colorMap->getColorMapShift();
@@ -79,8 +79,7 @@ void ShowColorMapModule::execute()
   }
 }
 
-GeometryBaseHandle
-ShowColorMapModule::buildGeometryObject(ColorMapHandle cm, ModuleStateHandle state, const std::string& id)
+GeometryBaseHandle ShowColorMap::buildGeometryObject(ColorMapHandle cm, ModuleStateHandle state, const std::string& id)
 {
   std::vector<Vector> points;
   std::vector<ColorRGB> colors;
@@ -114,13 +113,13 @@ ShowColorMapModule::buildGeometryObject(ColorMapHandle cm, ModuleStateHandle sta
   uint32_t iboSize = sizeof(uint32_t) * static_cast<uint32_t>(indices.size());
   uint32_t vboSize = sizeof(float) * 7 * static_cast<uint32_t>(points.size());
 
-  std::shared_ptr<CPM_VAR_BUFFER_NS::VarBuffer> iboBufferSPtr(
-    new CPM_VAR_BUFFER_NS::VarBuffer(vboSize));
-  std::shared_ptr<CPM_VAR_BUFFER_NS::VarBuffer> vboBufferSPtr(
-    new CPM_VAR_BUFFER_NS::VarBuffer(iboSize));
+  std::shared_ptr<spire::VarBuffer> iboBufferSPtr(
+    new spire::VarBuffer(iboSize));
+  std::shared_ptr<spire::VarBuffer> vboBufferSPtr(
+    new spire::VarBuffer(vboSize));
 
-  CPM_VAR_BUFFER_NS::VarBuffer* iboBuffer = iboBufferSPtr.get();
-  CPM_VAR_BUFFER_NS::VarBuffer* vboBuffer = vboBufferSPtr.get();
+  spire::VarBuffer* iboBuffer = iboBufferSPtr.get();
+  spire::VarBuffer* vboBuffer = vboBufferSPtr.get();
 
   for (auto a : indices) iboBuffer->write(a);
 
@@ -151,10 +150,10 @@ ShowColorMapModule::buildGeometryObject(ColorMapHandle cm, ModuleStateHandle sta
   ss << resolution << sigdig << txtsize << numlabel << st->getValue(Units).toString() <<
     scale << displaySide << red << green << blue << xTrans << yTrans;
 
-  std::string uniqueNodeID = id + "colorMapLegend" + ss.str();
-  std::string vboName = uniqueNodeID + "VBO";
-  std::string iboName = uniqueNodeID + "IBO";
-  std::string passName = uniqueNodeID + "Pass";
+  auto uniqueNodeID = id + "colorMapLegend" + ss.str();
+  auto vboName = uniqueNodeID + "VBO";
+  auto iboName = uniqueNodeID + "IBO";
+  auto passName = uniqueNodeID + "Pass";
 
   // NOTE: Attributes will depend on the color scheme. We will want to
   // normalize the colors if the color scheme is COLOR_IN_SITU.
@@ -170,7 +169,7 @@ ShowColorMapModule::buildGeometryObject(ColorMapHandle cm, ModuleStateHandle sta
   uniforms.push_back(SpireSubPass::Uniform("uDisplaySide", static_cast<float>(displaySide)));
   int displayLength = state->getValue(DisplayLength).toInt();
   uniforms.push_back(SpireSubPass::Uniform("uDisplayLength", static_cast<float>(displayLength)));
-  SpireVBO geomVBO = SpireVBO(vboName, attribs, vboBufferSPtr,
+  auto geomVBO = SpireVBO(vboName, attribs, vboBufferSPtr,
     numVBOElements, BBox(), true);
 
   // Construct IBO.
@@ -180,7 +179,7 @@ ShowColorMapModule::buildGeometryObject(ColorMapHandle cm, ModuleStateHandle sta
   RenderState renState;
   renState.set(RenderState::IS_ON, true);
   renState.set(RenderState::HAS_DATA, true);
-  
+
   SpireText text;
 
   SpireSubPass pass(passName, vboName, iboName, shader,
@@ -189,41 +188,37 @@ ShowColorMapModule::buildGeometryObject(ColorMapHandle cm, ModuleStateHandle sta
   // Add all uniforms generated above to the pass.
   for (const auto& uniform : uniforms) { pass.addUniform(uniform); }
 
-  GeometryHandle geom(new GeometryObjectSpire(*this, "ShowColorMap", false));
+  auto geom(boost::make_shared<GeometryObjectSpire>(*this, "ShowColorMap", false));
 
-  geom->mColorMap = cm->getColorMapName();
-  geom->mIBOs.push_back(geomIBO);
-  geom->mVBOs.push_back(geomVBO);
-  geom->mPasses.push_back(pass);
+  geom->setColorMap(cm->getColorMapName());
+  geom->ibos().push_back(geomIBO);
+  geom->vbos().push_back(geomVBO);
+  geom->passes().push_back(pass);
 
   //text
   char str2[128];
   std::stringstream sd;
   sd << "%." << sigdig << "g";
   std::vector<Vector> txt_coords;
-  double increment = 1. / static_cast<double>(numlabel - 1);
-  //double textSize = 5. * static_cast<double>(txtsize + 3);
-  double textSize = 3. * static_cast<double>(txtsize);
+  double increment = 1.0 / (numlabel - 1);
+  double textSize = 3.0 * txtsize;
   double dash_size = 18.;
   double pipe_size = 18.;
-  size_t text_size = size_t(textSize);
-  if (!textBuilder_.isInit())
-    textBuilder_.initFreeType("FreeSans.ttf", text_size);
-  else if (!textBuilder_.isValid())
-    textBuilder_.loadNewFace("FreeSans.ttf", text_size);
+  size_t text_size = static_cast<size_t>(textSize);
 
-  if (!textBuilder_.isInit() || !textBuilder_.isValid())
+  if (!textBuilder_.initialize(text_size))
     return geom;
+
   if (textBuilder_.getFaceSize() != text_size)
     textBuilder_.setFaceSize(text_size);
-  textBuilder_.setColor(glm::vec4(red, green, blue, 1.0));
+  textBuilder_.setColor(red, green, blue, 1.0);
 
   for (double i = 0.; i <= 1.000000001; i += increment)
   {
     std::stringstream line;
     sprintf(str2, sd.str().c_str(), (i / cm->getColorMapRescaleScale() - cm->getColorMapRescaleShift()) * scale);
     line << str2 << " " << st->getValue(Units).toString();
-    Vector shift = Vector((displaySide == 0) ?
+    Vector shift((displaySide == 0) ?
       (xTrans > 50 ? -(textSize*strlen(line.str().c_str())) : dash_size) : 0.,
       (displaySide == 0) ?
       0. : (yTrans > 50 ? (-textSize - pipe_size / 2.) : pipe_size), i);
@@ -238,23 +233,23 @@ ShowColorMapModule::buildGeometryObject(ColorMapHandle cm, ModuleStateHandle sta
       + yTrans / 50.;
     Vector trans(x_trans, y_trans, 0.0);
 
-    textBuilder_.printString(line.str(), trans, shift, id, geom);
+    textBuilder_.printString(line.str(), trans, shift, id, *geom);
   }
 
   return geom;
 }
 
-const AlgorithmParameterName ShowColorMapModule::DisplaySide("DisplaySide");
-const AlgorithmParameterName ShowColorMapModule::DisplayLength("DisplayLength");
-const AlgorithmParameterName ShowColorMapModule::TextSize("TextSize");
-const AlgorithmParameterName ShowColorMapModule::TextColor("TextColor");
-const AlgorithmParameterName ShowColorMapModule::Labels("Labels");
-const AlgorithmParameterName ShowColorMapModule::Scale("Scale");
-const AlgorithmParameterName ShowColorMapModule::Units("Units");
-const AlgorithmParameterName ShowColorMapModule::SignificantDigits("SignificantDigits");
-const AlgorithmParameterName ShowColorMapModule::AddExtraSpace("AddExtraSpace");
-const AlgorithmParameterName ShowColorMapModule::TextRed("TextRed");
-const AlgorithmParameterName ShowColorMapModule::TextGreen("TextGreen");
-const AlgorithmParameterName ShowColorMapModule::TextBlue("TextBlue");
-const AlgorithmParameterName ShowColorMapModule::XTranslation("XTranslation");
-const AlgorithmParameterName ShowColorMapModule::YTranslation("YTranslation");
+const AlgorithmParameterName ShowColorMap::DisplaySide("DisplaySide");
+const AlgorithmParameterName ShowColorMap::DisplayLength("DisplayLength");
+const AlgorithmParameterName ShowColorMap::TextSize("TextSize");
+const AlgorithmParameterName ShowColorMap::TextColor("TextColor");
+const AlgorithmParameterName ShowColorMap::Labels("Labels");
+const AlgorithmParameterName ShowColorMap::Scale("Scale");
+const AlgorithmParameterName ShowColorMap::Units("Units");
+const AlgorithmParameterName ShowColorMap::SignificantDigits("SignificantDigits");
+const AlgorithmParameterName ShowColorMap::AddExtraSpace("AddExtraSpace");
+const AlgorithmParameterName ShowColorMap::TextRed("TextRed");
+const AlgorithmParameterName ShowColorMap::TextGreen("TextGreen");
+const AlgorithmParameterName ShowColorMap::TextBlue("TextBlue");
+const AlgorithmParameterName ShowColorMap::XTranslation("XTranslation");
+const AlgorithmParameterName ShowColorMap::YTranslation("YTranslation");

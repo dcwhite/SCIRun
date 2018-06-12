@@ -32,17 +32,16 @@
 #include <cstdint>
 #include <memory>
 #include <Interface/Modules/Render/GLContext.h>
-#include "Core.h"
+#include <Interface/Modules/Render/ES/Core.h>
 #include <es-general/comp/Transform.hpp>
 
 //freetype
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-// CPM Modules
 #include <es-render/util/Shader.hpp>
 #include <es-render/comp/CommonUniforms.hpp>
-#include "comp/StaticClippingPlanes.h"
+#include <Interface/Modules/Render/ES/comp/StaticClippingPlanes.h>
 #include <Graphics/Datatypes/GeometryImpl.h>
 #include <Interface/Modules/Render/share.h>
 
@@ -176,7 +175,7 @@ namespace SCIRun {
       static std::string& getFSRoot();
       static std::string& getFSSeparator();
 
-      //Clipping Plane 
+      //Clipping Plane
       void setClippingPlaneIndex(int index);
       void setClippingPlaneVisible(bool value);
       void setClippingPlaneFrameOn(bool value);
@@ -199,11 +198,20 @@ namespace SCIRun {
       const glm::mat4& getViewToWorld() const;
       const glm::mat4& getViewToProjection() const;
 
+      void setLockZoom(bool lock);
+      void setLockPanning(bool lock);
+      void setLockRotation(bool lock);
+
       //clipping planes
       StaticClippingPlanes* getClippingPlanes();
 
       //get scenenox
       Core::Geometry::BBox getSceneBox();
+
+      //Light settings
+      void setLightColor(int index, float r, float g, float b);
+      void setLightPosition(int index, float x, float y);
+      void setLightOn(int index, bool value);
 
     private:
 
@@ -274,6 +282,9 @@ namespace SCIRun {
 
       // Sets up ESCore.
       void setupCore();
+
+      // set initial configuration of the lights
+      void setupLights();
 
       // Places mCamera's transform into our static camera component.
       void updateCamera();
@@ -368,8 +379,6 @@ namespace SCIRun {
       ren::ShaderVBOAttribs<5>          mArrowAttribs;    ///< Pre-applied shader / VBO attributes.
       ren::CommonUniforms               mArrowUniforms;   ///< Common uniforms used in the arrow shader.
       RenderState::TransparencySortType mRenderSortType;  ///< Which strategy will be used to render transparency
-      const int frameInitLimit_;
-      std::unique_ptr<SRCamera>         mCamera;          ///< Primary camera.
 
       //material settings
       double                            mMatAmbient;
@@ -382,9 +391,16 @@ namespace SCIRun {
       double                            mFogStart;
       double                            mFogEnd;
       glm::vec4                         mFogColor;
+
+      //light settings
+      std::vector<glm::vec3>            mLightPosition;
+      std::vector<bool>                 mLightsOn;
+
+      const int frameInitLimit_;
+      std::unique_ptr<SRCamera>         mCamera;          ///< Primary camera.
     };
 
   } // namespace Render
-} // namespace SCIRun 
+} // namespace SCIRun
 
-#endif 
+#endif

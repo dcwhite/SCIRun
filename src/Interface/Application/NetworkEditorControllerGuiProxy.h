@@ -32,18 +32,24 @@
 #include <QObject>
 #include <Dataflow/Network/NetworkFwd.h>
 #include <Dataflow/Network/ConnectionId.h>
+#ifndef Q_MOC_RUN
+#include <Dataflow/Network/ModuleInterface.h>
 #include <boost/optional/optional.hpp>
+#endif
 
 namespace SCIRun {
   namespace Dataflow { namespace Engine { class NetworkEditorController; struct DisableDynamicPortSwitch; struct ModuleCounter; }}
 
 namespace Gui {
 
+  class NetworkEditor;
+
   class NetworkEditorControllerGuiProxy : public QObject
   {
     Q_OBJECT
   public:
-    explicit NetworkEditorControllerGuiProxy(boost::shared_ptr<SCIRun::Dataflow::Engine::NetworkEditorController> controller);
+    NetworkEditorControllerGuiProxy(boost::shared_ptr<SCIRun::Dataflow::Engine::NetworkEditorController> controller, NetworkEditor* editor);
+    ~NetworkEditorControllerGuiProxy();
   public Q_SLOTS:
     void addModule(const std::string& moduleName);
     void removeModule(const SCIRun::Dataflow::Networks::ModuleId& id);
@@ -57,8 +63,9 @@ namespace Gui {
     void loadNetwork(const SCIRun::Dataflow::Networks::NetworkFileHandle& xml);
     void appendToNetwork(const SCIRun::Dataflow::Networks::NetworkFileHandle& xml);
     void executeAll(const SCIRun::Dataflow::Networks::ExecutableLookup& lookup);
-    void executeModule(const SCIRun::Dataflow::Networks::ModuleHandle& module, const SCIRun::Dataflow::Networks::ExecutableLookup& lookup);
+    void executeModule(const SCIRun::Dataflow::Networks::ModuleHandle& module, const SCIRun::Dataflow::Networks::ExecutableLookup& lookup, bool executeUpstream);
     size_t numModules() const;
+    std::vector<Dataflow::Networks::ModuleExecutionState::Value> moduleExecutionStates() const;
     int errorCode() const;
     void setExecutorType(int type);
     void cleanUpNetwork();
@@ -66,6 +73,8 @@ namespace Gui {
     const SCIRun::Dataflow::Networks::ModuleDescriptionMap& getAllAvailableModuleDescriptions() const;
     SCIRun::Dataflow::Networks::NetworkGlobalSettings& getSettings();
     boost::shared_ptr<SCIRun::Dataflow::Engine::DisableDynamicPortSwitch> createDynamicPortSwitch();
+    boost::shared_ptr<NetworkEditorControllerGuiProxy> withSubnet(NetworkEditor* subnet) const;
+    NetworkEditor* activeNetwork() const { return editor_; }
   Q_SIGNALS:
     void moduleAdded(const std::string& name, SCIRun::Dataflow::Networks::ModuleHandle module, const SCIRun::Dataflow::Engine::ModuleCounter& count);
     void moduleRemoved(const SCIRun::Dataflow::Networks::ModuleId& id);
@@ -79,6 +88,8 @@ namespace Gui {
     void snippetNeedsMoving(const std::string& name);
   private:
     boost::shared_ptr<SCIRun::Dataflow::Engine::NetworkEditorController> controller_;
+    NetworkEditor* editor_;
+    std::vector<boost::signals2::connection> connections_;
   };
 
 }

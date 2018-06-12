@@ -1,44 +1,30 @@
-sudo: required
-language:
-- cpp
+language: c++
 
-os:
-#Too many slow builds on Travis OSX images causing build errors. Turning off to speed up turn around. We can investigate later. For now, main developers should build on Mac before merging.
-#- osx
-- linux
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      sudo: required
+      compiler: gcc
+    - os: linux
+      dist: trusty
+      sudo: required
+      compiler: clang
+#    - os: osx
+#      osx_image: xcode7.2
 
-compiler:
-- clang
-# TODO: gcc chokes on a boost pthread usage, disabling for now.
-#- gcc
-
-#matrix:
-#  exclude:
-#  - os: osx
-#    compiler: g++
-
-# check environment (copied from libgit2sharp)
 before_install:
 - date -u
 - uname -a
-- if [ "${TRAVIS_OS_NAME}" = "linux" ]; then ./ci/linux_before_install.sh; fi
-- if [ "${TRAVIS_OS_NAME}" = "osx" ]; then ./ci/osx_before_install.sh; fi
+- sudo apt-get install mesa-common-dev libgl1-mesa-dev mesa-utils-extra libglapi-mesa ninja-build libqt4-dev qt4-qmake libqt4-opengl-dev
 
-# make sure cmake is installed, set up latest GCC C++ compiler if necessary
-install:
- - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then ./ci/linux_install.sh; fi
-# - if [ "${TRAVIS_OS_NAME}" = "linux" -a "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
- - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then ./ci/osx_install.sh; fi
-
-# TODO: could move script to separate file
-# Not running unit tests at the moment, so turn off testing, which will
-# hopefully make OS X builds a bit faster
 script:
   - cd bin
-  - cmake -DDOWNLOAD_TOOLKITS:BOOL=OFF -DBUILD_TESTING:BOOL=OFF ../Superbuild
-  - make -j8
-#  make SCIRunTestData_external
-#  && make test
+  - cmake -GNinja -DTRAVIS_BUILD:BOOL=ON ../Superbuild
+  - travis_wait 80 ninja
+  - cd SCIRun
+  - ./Algorithm_Layer_Test
+  - ./Modules_Factory_Tests --gtest_filter=*HardCodedModuleFactoryTests*
 
 notifications:
   slack: sciinstitute:lZnpQQXNd4Io5iGDPQDpJmI1

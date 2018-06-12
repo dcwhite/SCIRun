@@ -37,19 +37,20 @@ namespace SCIRun {
   namespace Modules {
     namespace Fields {
 
-      class SCISHARE MapFieldDataFromElemToNodeModule : public Dataflow::Networks::Module,
+      class SCISHARE MapFieldDataFromElemToNode : public Dataflow::Networks::Module,
         public Has1InputPort<FieldPortTag>,
         public Has1OutputPort<FieldPortTag>,
         public Core::Thread::Interruptible
       {
       public:
-        MapFieldDataFromElemToNodeModule();
+        MapFieldDataFromElemToNode();
 
-        virtual void execute();
-        virtual void setStateDefaults();
+        virtual void execute() override;
+        virtual void setStateDefaults() override;
 
-        INPUT_PORT(0, InputField, LegacyField);
-        OUTPUT_PORT(0, OutputField, LegacyField);
+        INPUT_PORT(0, InputField, Field);
+        OUTPUT_PORT(0, OutputField, Field);
+        MODULE_TRAITS_AND_INFO(ModuleHasUIAndAlgorithm)
       };
 
     }

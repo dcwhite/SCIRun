@@ -54,7 +54,7 @@ using namespace Matlab;
 ALGORITHM_PARAMETER_DEF(Matlab, FieldInfoStrings);
 ALGORITHM_PARAMETER_DEF(Matlab, PortChoices);
 
-const ModuleLookupInfo ImportFieldsFromMatlab::staticInfo_("ImportFieldsFromMatlab", "Matlab", "SCIRun");
+MODULE_INFO_DEF(ImportFieldsFromMatlab, Matlab, SCIRun)
 
 ImportFieldsFromMatlab::ImportFieldsFromMatlab() : Module(staticInfo_)
 {
@@ -105,7 +105,7 @@ namespace
       // return an empty array
       return(marray);
     }
-    
+
     return mfile.getmatlabarray(matlabName);
   }
 }
@@ -133,8 +133,6 @@ void ImportFieldsFromMatlab::execute()
   }
 
   indexmatlabfile();
-
-  update_state(Executing);
 
   auto choices = toStringVector(state->getValue(Parameters::PortChoices).toVector());
 

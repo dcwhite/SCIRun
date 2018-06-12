@@ -36,16 +36,18 @@ namespace SCIRun {
   namespace Modules {
     namespace Basic {
 
-      class SCISHARE ReceiveComplexScalarModule : public SCIRun::Dataflow::Networks::Module,
-        public Has1InputPort<ComplexDenseMatrixPortTag>,
+      class SCISHARE ReceiveComplexScalar : public SCIRun::Dataflow::Networks::Module,
+        public Has1InputPort<ComplexMatrixPortTag>,
         public HasNoOutputPorts
       {
       public:
-        ReceiveComplexScalarModule();
-        virtual void execute();
-        virtual void setStateDefaults() {}
+        ReceiveComplexScalar();
+        virtual void execute() override;
+        virtual void setStateDefaults() override {}
 
         INPUT_PORT(0, Input, ComplexDenseMatrix);
+
+        MODULE_TRAITS_AND_INFO(NoAlgoOrUI)
       };
  }}}
 

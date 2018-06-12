@@ -36,19 +36,20 @@ namespace SCIRun {
 namespace Modules {
 namespace Math {
 
-  class SCISHARE SelectSubMatrixModule : public SCIRun::Dataflow::Networks::Module,
+  class SCISHARE SelectSubMatrix : public SCIRun::Dataflow::Networks::Module,
     public Has3InputPorts<MatrixPortTag, MatrixPortTag, MatrixPortTag>,
     public Has1OutputPort<MatrixPortTag>
   {
   public:
-    SelectSubMatrixModule();
-    virtual void execute();
-    virtual void setStateDefaults();
+    SelectSubMatrix();
+    virtual void execute() override;
+    virtual void setStateDefaults() override;
 
     INPUT_PORT(0, InputMatrix, DenseMatrix);
     INPUT_PORT(1, RowIndicies, DenseMatrix);
     INPUT_PORT(2, ColumnIndicies, DenseMatrix);
     OUTPUT_PORT(0, ResultMatrix, DenseMatrix);
+    MODULE_TRAITS_AND_INFO(ModuleHasUIAndAlgorithm)
   };
 }}}
 

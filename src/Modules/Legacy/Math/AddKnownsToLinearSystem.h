@@ -6,7 +6,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -43,15 +43,15 @@ namespace SCIRun {
       {
       public:
         AddKnownsToLinearSystem();
-        virtual void setStateDefaults() {}
-        virtual void execute();
+        virtual void setStateDefaults() override {}
+        virtual void execute() override;
 
         INPUT_PORT(0, LHS_Matrix, SparseRowMatrix);
         INPUT_PORT(1, RHS_Vector, DenseMatrix);
 	      INPUT_PORT(2, X_Vector, DenseMatrix);
         OUTPUT_PORT(0, OutPutLHSMatrix, SparseRowMatrix);
 	      OUTPUT_PORT(1, OutPutRHSVector, DenseColumnMatrix);
-	
+	      MODULE_TRAITS_AND_INFO(ModuleHasAlgorithm)
       };
 
     }

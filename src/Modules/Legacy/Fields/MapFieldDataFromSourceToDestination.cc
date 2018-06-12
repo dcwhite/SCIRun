@@ -44,7 +44,7 @@ using namespace SCIRun::Core::Algorithms::Fields;
 /// input, the first of which, Source, contains geometry and data values;
 /// the second, Destination, contains geometry only.
 
-const ModuleLookupInfo MapFieldDataFromSourceToDestination::staticInfo_("MapFieldDataFromSourceToDestination", "ChangeFieldData", "SCIRun");
+MODULE_INFO_DEF(MapFieldDataFromSourceToDestination, ChangeFieldData, SCIRun)
 
 MapFieldDataFromSourceToDestination::MapFieldDataFromSourceToDestination() :
   Module(staticInfo_)
@@ -68,8 +68,6 @@ void MapFieldDataFromSourceToDestination::execute()
 
   if (needToExecute())
   {
-    update_state(Executing);
-
     setAlgoOptionFromState(Parameters::MappingMethod);
     setAlgoDoubleFromState(Parameters::DefaultValue);
     setAlgoDoubleFromState(Parameters::MaxDistance);

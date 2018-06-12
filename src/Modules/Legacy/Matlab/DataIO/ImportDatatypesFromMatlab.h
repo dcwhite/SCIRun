@@ -36,23 +36,23 @@ namespace SCIRun {
 namespace Modules {
 namespace Matlab {
 namespace DataIO {
-  
+
   class SCISHARE ImportDatatypesFromMatlab : public SCIRun::Dataflow::Networks::Module,
     public Has1InputPort<StringPortTag>,
     public Has3OutputPorts<FieldPortTag, MatrixPortTag, StringPortTag>
   {
   public:
     ImportDatatypesFromMatlab();
-    virtual void execute();
-    virtual void setStateDefaults();
+    virtual void execute() override;
+    virtual void setStateDefaults() override;
     INPUT_PORT(0, Filename, String);
 
     //TODO: dynamic/wildcard output ports
-    OUTPUT_PORT(0, OutputField, LegacyField);
+    OUTPUT_PORT(0, OutputField, Field);
     OUTPUT_PORT(1, OutputMatrix, Matrix);
     OUTPUT_PORT(2, FilenameOut, String);
 
-    static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+    MODULE_TRAITS_AND_INFO(ModuleHasUI)
   };
 
 }}}}

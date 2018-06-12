@@ -40,18 +40,20 @@ namespace SCIRun {
 namespace Modules {
 namespace DataIO {
 
-  class SCISHARE ReadFieldModule : public GenericReader<FieldHandle, FieldPortTag>
+  class SCISHARE ReadField : public GenericReader<FieldHandle, FieldPortTag>
   {
   public:
     typedef GenericReader<FieldHandle, FieldPortTag> my_base;
-    ReadFieldModule();
+    ReadField();
     virtual void execute() override;
     virtual bool useCustomImporter(const std::string& filename) const override;
     virtual bool call_importer(const std::string& filename, FieldHandle& handle) override;
 
-    OUTPUT_PORT(0, Field, LegacyField);
+    OUTPUT_PORT(0, Field, Field);
 
     static std::string fileTypeList();
+
+    MODULE_TRAITS_AND_INFO(ModuleHasUI)
   protected:
     virtual std::string defaultFileTypeName() const override;
   };

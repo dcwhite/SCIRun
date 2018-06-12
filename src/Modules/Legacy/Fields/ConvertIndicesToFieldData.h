@@ -6,7 +6,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -43,14 +43,14 @@ namespace SCIRun {
       public:
         ConvertIndicesToFieldData();
 
-        virtual void execute();
-        virtual void setStateDefaults();
+        virtual void execute() override;
+        virtual void setStateDefaults() override;
 
-        INPUT_PORT(0, InputField, LegacyField);
+        INPUT_PORT(0, InputField, Field);
 				INPUT_PORT(1, InputMatrix, Matrix);
-        OUTPUT_PORT(0, OutputField, LegacyField);
-				
-				static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+        OUTPUT_PORT(0, OutputField, Field);
+
+        MODULE_TRAITS_AND_INFO(ModuleHasUIAndAlgorithm)
       };
     }
   }

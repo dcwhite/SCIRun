@@ -46,6 +46,7 @@ DEALINGS IN THE SOFTWARE.
 #include <Core/Datatypes/Legacy/Field/VMesh.h>
 #include <Core/Datatypes/Legacy/Field/FieldInformation.h>
 #include <Core/Logging/Log.h>
+#include <spdlog/fmt/ostr.h>
 
 using namespace SCIRun;
 using namespace SCIRun::Core::Datatypes;
@@ -86,7 +87,7 @@ namespace detail
   };
 }
 
-const ModuleLookupInfo ApplyFEMCurrentSource::staticInfo_("ApplyFEMCurrentSource", "FiniteElements", "SCIRun");
+MODULE_INFO_DEF(ApplyFEMCurrentSource, FiniteElements, SCIRun)
 const AlgorithmParameterName ApplyFEMCurrentSource::SourceNode("SourceNode");
 const AlgorithmParameterName ApplyFEMCurrentSource::SinkNode("SinkNode");
 const AlgorithmParameterName ApplyFEMCurrentSource::ModelType("ModelType");
@@ -185,7 +186,7 @@ bool detail::ApplyFEMCurrentSourceImpl::execute_dipole(FieldHandle field,
 
     if (mesh->locate(loc, coords, pos))
     {
-      LOG_DEBUG("Source pos=" << pos << " dir=" << dir << " found in elem " << loc <<std::endl);
+      LOG_DEBUG("Source pos={} dir={} found in elem {}", pos, dir, loc);
 
       if (fabs(dir.x()) > 0.000001)
       {

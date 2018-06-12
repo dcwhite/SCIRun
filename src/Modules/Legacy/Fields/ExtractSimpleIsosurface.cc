@@ -29,6 +29,8 @@
 #include <Modules/Legacy/Fields/ExtractSimpleIsosurface.h>
 #include <Core/Algorithms/Legacy/Fields/MeshDerivatives/ExtractSimpleIsosurfaceAlgo.h>
 #include <Core/Datatypes/Matrix.h>
+#include <Core/Datatypes/DenseMatrix.h>
+#include <Core/Datatypes/MatrixTypeConversions.h>
 #include <Core/Datatypes/Legacy/Field/Field.h>
 #include <Core/Datatypes/Legacy/Field/VField.h>
 #include <boost/algorithm/string/predicate.hpp>
@@ -42,36 +44,61 @@ using namespace SCIRun::Modules::Fields;
 using namespace SCIRun::Core::Algorithms;
 using namespace SCIRun::Core::Algorithms::Fields;
 
-ExtractSimpleIsosurfaceModule::ExtractSimpleIsosurfaceModule()
+ExtractSimpleIsosurface::ExtractSimpleIsosurface()
   : Module(ModuleLookupInfo("ExtractSimpleIsosurface", "NewField", "SCIRun"))
 {
   INITIALIZE_PORT(InputField);
   INITIALIZE_PORT(Isovalue);
   INITIALIZE_PORT(OutputField);
+  INITIALIZE_PORT(OutputMatrix);
 }
 
-void ExtractSimpleIsosurfaceModule::setStateDefaults()
+void ExtractSimpleIsosurface::setStateDefaults()
 {
   setStateDoubleFromAlgo(Parameters::SingleIsoValue);
   setStateStringFromAlgo(Parameters::ListOfIsovalues);
   setStateIntFromAlgo(Parameters::QuantityOfIsovalues);
+  get_state()->setValue(Parameters::IsovalueListString, std::string());
+  get_state()->setValue(Parameters::IsovalueChoice, std::string("Single"));
 }
 
-void ExtractSimpleIsosurfaceModule::execute()
+void ExtractSimpleIsosurface::execute()
 {
-  FieldHandle field = getRequiredInput(InputField);
+  auto field = getRequiredInput(InputField);
   auto isovalueOption = getOptionalInput(Isovalue);
 
   if (needToExecute())
   {
-    update_state(Executing);
     auto state = get_state();
 
     if (isovalueOption && *isovalueOption && !(*isovalueOption)->empty())
     {
-      //TODO: pass entire first column for multiple isovalues
-      double iso = (*isovalueOption)->get(0,0);
-      state->setValue(Parameters::SingleIsoValue, iso);
+      if (state->getValue(Parameters::IsovalueChoice).toString() == "Single")
+      {
+        double iso = (*isovalueOption)->get(0,0);
+        state->setValue(Parameters::SingleIsoValue, iso);
+      }
+      else if (state->getValue(Parameters::IsovalueChoice).toString() == "List")
+      {
+        if (!matrixIs::dense(*isovalueOption)) error("Isovalue input matrix should be dense type");
+        
+        auto mat_iso = castMatrix::toDense (*isovalueOption);
+        if (mat_iso->nrows()>1)
+        {
+          if (mat_iso->ncols()>1)
+          {
+            warning("input matrix will work better as a row matrix");
+          }
+          else
+          {
+            mat_iso->transposeInPlace();
+          }
+        }
+        
+        std::ostringstream ostr;
+        ostr << *mat_iso;
+        state->setValue(Parameters::ListOfIsovalues, ostr.str());
+      }
     }
 
     std::vector<double> isoDoubles;
@@ -85,26 +112,33 @@ void ExtractSimpleIsosurfaceModule::execute()
     {
       auto isoList = state->getValue(Parameters::ListOfIsovalues).toString();
       std::vector<std::string> tokens;
-      boost::split(tokens, isoList, boost::is_any_of(","));
-      
+      boost::split(tokens, isoList, boost::is_any_of(", "));
+
       std::transform(tokens.begin(), tokens.end(), std::back_inserter(isoDoubles), [](const std::string& s)
       {
         try { return boost::lexical_cast<double>(s); } catch (boost::bad_lexical_cast&) { return 0.0; }
       });
-      
     }
-    if (state->getValue(Parameters::IsovalueChoice).toString() == "Quantity")
+    else if (state->getValue(Parameters::IsovalueChoice).toString() == "Quantity")
     {
       //TODO: add exclusive/inclusive option; move to algo level
       double qmin, qmax;
       field->vfield()->minmax(qmin, qmax);
       std::ostringstream ostr;
       int num = state->getValue(Parameters::QuantityOfIsovalues).toInt();
-      double di = (qmax - qmin) / (double)(num - 1.0);
-      for (int i = 0; i < num; i++)
+      if (num > 1)
       {
-        isoDoubles.push_back(qmin + ((double)i*di));
-        ostr << isoDoubles[i] << "\n";
+        double di = (qmax - qmin) / (double)(num - 1.0);
+        for (int i = 0; i < num; i++)
+        {
+          isoDoubles.push_back(qmin + ((double)i*di));
+          ostr << isoDoubles[i] << "\n";
+        }
+      }
+      else if (num == 1)
+      {
+        isoDoubles.push_back((qmin + qmax)/2);
+        ostr << isoDoubles[0] << "\n";
       }
       state->setValue(Parameters::IsovalueListString, ostr.str());
     }
@@ -112,8 +146,9 @@ void ExtractSimpleIsosurfaceModule::execute()
     VariableList isos;
     std::transform(isoDoubles.begin(), isoDoubles.end(), std::back_inserter(isos), [](double x) { return makeVariable("iso", x); });
     algo().set(Parameters::Isovalues, isos);
-
+    
     auto output = algo().run(withInputData((InputField, field)));
     sendOutputFromAlgorithm(OutputField, output);
+    sendOutputFromAlgorithm(OutputMatrix, output);
   }
 }

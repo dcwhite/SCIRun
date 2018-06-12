@@ -31,6 +31,8 @@
 #define CORE_DATATYPES_MATRIX_FWD_H
 
 #include <Core/Datatypes/Legacy/Base/TypeName.h>
+#include <Core/Utils/SmartPointers.h>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <boost/shared_ptr.hpp>
 
 namespace SCIRun {
@@ -40,19 +42,23 @@ namespace Datatypes {
   template <typename T>
   class MatrixBase;
 
-  typedef MatrixBase<double> Matrix;
-
-  template <typename T>
-  using SharedPointer = boost::shared_ptr<T>;
+  using Matrix = MatrixBase<double>;
+  using ComplexMatrix = MatrixBase<complex>;
 
   typedef SharedPointer<Matrix> MatrixHandle;
   typedef SharedPointer<const Matrix> MatrixConstHandle;
+  template <typename T>
+  using MatrixHandleGeneric = SharedPointer<MatrixBase<T>>;
+
+  typedef SharedPointer<ComplexMatrix> ComplexMatrixHandle;
 
   template <typename T>
   class DenseMatrixGeneric;
+  template <typename T>
+  using DenseMatrixHandleGeneric = SharedPointer<DenseMatrixGeneric<T>>;
 
   typedef DenseMatrixGeneric<double> DenseMatrix;
-  using ComplexDenseMatrix = DenseMatrixGeneric<SCIRun::complex>;
+  using ComplexDenseMatrix = DenseMatrixGeneric<complex>;
 
   typedef SharedPointer<DenseMatrix> DenseMatrixHandle;
   typedef SharedPointer<const DenseMatrix> DenseMatrixConstHandle;
@@ -60,19 +66,29 @@ namespace Datatypes {
 
   template <typename T>
   class DenseColumnMatrixGeneric;
+  template <typename T>
+  using DenseColumnMatrixHandleGeneric = SharedPointer<DenseColumnMatrixGeneric<T>>;
 
   typedef DenseColumnMatrixGeneric<double> DenseColumnMatrix;
+  using ComplexDenseColumnMatrix = DenseColumnMatrixGeneric<complex>;
 
   typedef SharedPointer<DenseColumnMatrix> DenseColumnMatrixHandle;
   typedef SharedPointer<const DenseColumnMatrix> DenseColumnMatrixConstHandle;
 
+  typedef SharedPointer<ComplexDenseColumnMatrix> ComplexDenseColumnMatrixHandle;
+
   template <typename T>
   class SparseRowMatrixGeneric;
+  template <typename T>
+  using SparseRowMatrixHandleGeneric = SharedPointer<SparseRowMatrixGeneric<T>>;
 
   typedef SparseRowMatrixGeneric<double> SparseRowMatrix;
+  using ComplexSparseRowMatrix = SparseRowMatrixGeneric<complex>;
 
   typedef SharedPointer<SparseRowMatrix> SparseRowMatrixHandle;
   typedef SharedPointer<const SparseRowMatrix> SparseRowMatrixConstHandle;
+
+  typedef SharedPointer<ComplexSparseRowMatrix> ComplexSparseRowMatrixHandle;
 
 }}}
 

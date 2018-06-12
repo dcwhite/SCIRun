@@ -6,7 +6,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -39,17 +39,21 @@ namespace SCIRun {
 
       class SCISHARE BuildFEMatrix : public Dataflow::Networks::Module,
         public Has2InputPorts<FieldPortTag, MatrixPortTag>,
-        public Has1OutputPort<MatrixPortTag>
+        public Has2OutputPorts<MatrixPortTag, ComplexMatrixPortTag>
       {
       public:
         BuildFEMatrix();
-        virtual void setStateDefaults() {}
-        virtual void execute();
 
-        INPUT_PORT(0, InputField, LegacyField);
+        void setStateDefaults() override
+        {}
+
+        void execute() override;
+
+        INPUT_PORT(0, InputField, Field);
         INPUT_PORT(1, Conductivity_Table, Matrix);
         OUTPUT_PORT(0, Stiffness_Matrix, Matrix);
-
+        OUTPUT_PORT(1, Stiffness_Matrix_Complex, ComplexSparseRowMatrix);
+        MODULE_TRAITS_AND_INFO(ModuleHasAlgorithm)
       };
 
     }

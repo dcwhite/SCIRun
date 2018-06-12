@@ -34,6 +34,7 @@ DEALINGS IN THE SOFTWARE.
 #include <Core/ConsoleApplication/ConsoleApplication.h>
 #include <Core/ConsoleApplication/ConsoleCommandFactory.h>
 #include <Core/Logging/Log.h>
+#include <iostream>
 
 using namespace SCIRun::Core::Console;
 using namespace SCIRun::Core::Logging;
@@ -48,14 +49,12 @@ int ConsoleApplication::run(int argc, const char* argv[])
   }
   catch (std::exception& e)
   {
-    Log::get() << EMERG << "Unhandled exception: " << e.what() << std::endl;
-    std::cerr << "Critical error! Unhandled exception: " << e.what() << "\nExiting now." << std::endl;
+    GeneralLog::Instance().get()->critical("Critical error! Unhandled exception: {}\nExiting now.", e.what());
     return 1;
   }
   catch (...)
   {
-    Log::get() << EMERG << "Unknown unhandled exception." << std::endl;
-    std::cerr << "Critical error! Unknown unhandled exception: exiting now." << std::endl;
+    GeneralLog::Instance().get()->critical("Critical error! Unknown unhandled exception: exiting now.");
     return 1;
   }
 

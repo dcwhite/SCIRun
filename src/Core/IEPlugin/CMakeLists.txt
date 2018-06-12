@@ -32,7 +32,9 @@ SET(Core_IEPlugin_SRCS
   CurveField_Plugin.cc
   #DIF_Plugin.cc
   EcgsimFileToMatrix_Plugin.cc
+  IgbFileToMatrix_Plugin.cc
   #EcgsimFileToTriSurf_Plugin.cc
+  G3DToField_Plugin.cc
   #HexVolField_Plugin.cc
   IEPluginInit.cc
   #MRC_Plugin.cc
@@ -49,7 +51,9 @@ SET(Core_IEPlugin_SRCS
   #StructHexVolField_Plugin.cc
   #StructQuadSurfField_Plugin.cc
   TriSurfField_Plugin.cc
-  #TetVolField_Plugin.cc
+  TetVolField_Plugin.cc
+  CARPMesh_Plugin.cc
+  CARPFiber_Plugin.cc
 )
 
 SET(Core_IEPlugin_HEADERS
@@ -60,7 +64,9 @@ SET(Core_IEPlugin_HEADERS
   CurveField_Plugin.h
   #DIF_Plugin.h
   EcgsimFileToMatrix_Plugin.h
+  IgbFileToMatrix_Plugin.h
   #EcgsimFileToTriSurf_Plugin.h
+  G3DToField_Plugin.h
   #HexVolField_Plugin.h
   #MRC_Plugin.h
   #MTextFileToTriSurf_Plugin.h
@@ -76,7 +82,9 @@ SET(Core_IEPlugin_HEADERS
   #StructHexVolField_Plugin.h
   #StructQuadSurfField_Plugin.h
   TriSurfField_Plugin.h
-  #TetVolField_Plugin.h
+  TetVolField_Plugin.h
+  CARPMesh_Plugin.h
+  CARPFiber_Plugin.h
 )
 
 SCIRUN_ADD_LIBRARY(Core_IEPlugin
@@ -86,19 +94,12 @@ SCIRUN_ADD_LIBRARY(Core_IEPlugin
 
 TARGET_LINK_LIBRARIES(Core_IEPlugin
   Core_Persistent
-  #Core_Exceptions
-  #Core_Thread
-  #Core_Geometry
-  #Core_Math
-  #Core_Util
   Core_Matlab
   Core_Datatypes
   Core_Datatypes_Legacy_Field
   Core_ImportExport
   Core_Algorithms_Legacy_DataIO
   Core_Algorithms_Legacy_Converter
-  #Core_Algorithms_Converter
-  #Core_Algorithms_Util
 )
 
 IF(BUILD_SHARED_LIBS)

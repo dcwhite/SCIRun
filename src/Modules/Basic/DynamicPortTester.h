@@ -37,27 +37,29 @@
 namespace SCIRun {
 namespace Modules {
 namespace Basic {
-  
+
   class SCISHARE DynamicPortTester : public SCIRun::Dataflow::Networks::Module,
     public Has3InputPorts<
-      DynamicPortTag<MatrixPortTag>, 
-      DynamicPortTag<FieldPortTag>, 
+      DynamicPortTag<MatrixPortTag>,
+      DynamicPortTag<FieldPortTag>,
       DynamicPortTag<StringPortTag>>,
     public Has3OutputPorts<ScalarPortTag, ScalarPortTag, ScalarPortTag>
   {
   public:
     DynamicPortTester();
-    virtual void execute();
-    virtual void setStateDefaults() {}
-    virtual bool hasDynamicPorts() const { return true; }
+    void execute() override;
+    void setStateDefaults() override {}
+    bool hasDynamicPorts() const override { return true; }
 
     INPUT_PORT_DYNAMIC(0, DynamicMatrix, Matrix);
-    INPUT_PORT_DYNAMIC(1, DynamicField, LegacyField);
+    INPUT_PORT_DYNAMIC(1, DynamicField, Field);
     INPUT_PORT_DYNAMIC(2, DynamicString, String);
 
     OUTPUT_PORT(0, NumMatrices, Int32);
     OUTPUT_PORT(1, NumFields, Int32);
     OUTPUT_PORT(2, NumStrings, Int32);
+
+    MODULE_TRAITS_AND_INFO(NoAlgoOrUI)
   };
 
 }}}

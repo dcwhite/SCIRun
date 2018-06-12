@@ -33,6 +33,8 @@
 #include <Interface/Application/Note.h>
 #include <QGraphicsProxyWidget>
 
+class QTimeLine;
+
 namespace SCIRun
 {
   namespace Gui
@@ -48,13 +50,22 @@ namespace SCIRun
       ~ModuleProxyWidget();
       ModuleWidget* getModuleWidget();
       void createStartupNote();
+      void adjustHeight(int delta);
+      void adjustWidth(int delta);
+
+      //TODO: move to utility
+      static void ensureItemVisible(QGraphicsItem* item);
 
     public Q_SLOTS:
       void highlightIfSelected();
       void setDefaultNotePosition(NotePosition position);
+      void setDefaultNoteSize(int size);
       void createPortPositionProviders();
       void snapToGrid();
       void highlightPorts(int state);
+      void ensureThisVisible();
+      void showAndColor(const QColor& color);
+      void updateNote(const Note& note);
 
     Q_SIGNALS:
       void selected();
@@ -69,31 +80,35 @@ namespace SCIRun
       QVariant itemChange(GraphicsItemChange change, const QVariant& value) override;
       virtual void setNoteGraphicsContext() override;
     private Q_SLOTS:
-      void updateNote(const Note& note);
-      void ensureThisVisible();
       void disableModuleGUI(bool disabled);
+      void loadAnimate(qreal val);
+      void colorAnimate(qreal val);
+      void findInNetwork();
     private:
-      void ensureItemVisible(QGraphicsItem* item);
+      void showAndColorImpl(const QColor& color, int milliseconds);
       bool isSubwidget(QWidget* alienWidget) const;
       void updatePressedSubWidget(QGraphicsSceneMouseEvent* event);
 
       ModuleWidget* module_;
+      QColor animateColor_;
       bool grabbedByWidget_, isSelected_;
       QWidget* pressedSubWidget_;
       QPointF position_;
       QPointF cachedPosition_;
       bool doHighlight_;
       int stackDepth_;
+      QSizeF originalSize_;
+      QTimeLine* timeLine_;
     };
 
-    // arbitrary values
-    static const int TagDataKey = 123;
-    static const int TagLayerKey = 100;
-    static const int CurrentTagKey = 101;
-    static const int NoTag = -1;
-    static const int AllTags = -50;
-    static const int ShowGroups = -100;
-    static const int HideGroups = -101;
+    class SubnetPortsBridgeProxyWidget : public QGraphicsProxyWidget
+    {
+    public:
+      explicit SubnetPortsBridgeProxyWidget(class SubnetPortsBridgeWidget* ports, QGraphicsItem* parent = nullptr);
+      void updateConnections();
+    private:
+      class SubnetPortsBridgeWidget* ports_;
+    };
   }
 }
 

@@ -40,16 +40,19 @@ namespace Math {
     public Has2InputPorts<MatrixPortTag, ScalarPortTag>,
     public Has2OutputPorts<MatrixPortTag, ScalarPortTag>
   {
+    CONVERTED_VERSION_OF_MODULE(GetColumnOrRowFromMatrix)
+
   public:
     GetMatrixSlice();
-    virtual void execute();
-    virtual void setStateDefaults();
+    void execute() override;
+    void setStateDefaults() override;
     INPUT_PORT(0, InputMatrix, Matrix);
     INPUT_PORT(1, Current_Index, Int32);
     OUTPUT_PORT(0, OutputMatrix, Matrix);
     OUTPUT_PORT(1, Selected_Index, Int32);
 
-    static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+    MODULE_TRAITS_AND_INFO(ModuleHasUIAndAlgorithm)
+
   private:
     bool playing_;
     void playAgain(int nextIndex);

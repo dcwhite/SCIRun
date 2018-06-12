@@ -83,6 +83,7 @@ public:
   std::string applicationName() const;
   std::string version() const;
   std::string moduleList();
+  bool moduleNameExists(const std::string& name);
 
   void shutdown();
 
@@ -119,6 +120,25 @@ private:
 //	static std::string GetApplicationNameAndVersion();
 //	static std::string GetAbout();
 };
+
+namespace Commands
+{
+  template <class Base>
+  class FileCommand : public Base
+  {
+  public:
+    FileCommand()
+    {
+      Base::addParameter(Core::Algorithms::Variables::Filename, std::string());
+    }
+  };
+
+  class SCISHARE SaveFileCommandHelper
+  {
+  public:
+    std::string saveImpl(const std::string& filename);
+  };
+}
 
 }}
 

@@ -26,10 +26,9 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 */
 
-#include <QtGui>
+#include <Interface/qt_include.h>
 #include <numeric>
 #include <Core/Algorithms/Base/AlgorithmVariableNames.h>
-#include <Core/Application/Application.h>
 #include <Core/Application/Preferences/Preferences.h>
 #include <Interface/Application/SCIRunMainWindow.h>
 #include <Interface/Application/GuiCommands.h>
@@ -49,6 +48,7 @@ DEALINGS IN THE SOFTWARE.
 
 using namespace SCIRun::Gui;
 using namespace SCIRun::Core;
+using namespace SCIRun::Core::Logging;
 using namespace Commands;
 using namespace SCIRun::Dataflow::Networks;
 using namespace Algorithms;
@@ -56,7 +56,6 @@ using namespace Algorithms;
 LoadFileCommandGui::LoadFileCommandGui()
 {
   addParameter(Name("FileNum"), 0);
-  addParameter(Variables::Filename, std::string());
 }
 
 bool LoadFileCommandGui::execute()
@@ -65,7 +64,7 @@ bool LoadFileCommandGui::execute()
   auto inputFilesFromCommandLine = Application::Instance().parameters()->inputFiles();
 
   if (!inputFilesFromCommandLine.empty())
-    inputFile = inputFilesFromCommandLine[index_];
+    inputFile = inputFilesFromCommandLine[0];
   else
   {
     inputFile = get(Variables::Filename).toFilename().string();
@@ -193,7 +192,8 @@ std::ostream& operator<<(std::ostream& o, const std::pair<T1,T2>& p)
 bool NetworkFileProcessCommand::execute()
 {
   auto filename = get(Variables::Filename).toFilename().string();
-  GuiLogger::Instance().logInfo("Attempting load of " + QString::fromStdString(filename));
+  auto tempFile = get(Name("temporaryFile")).toBool();
+  GuiLogger::logInfo("Attempting load of " + QString::fromStdString(filename));
 
   try
   {
@@ -209,7 +209,7 @@ bool NetworkFileProcessCommand::execute()
       else
       {
         int numModules = static_cast<int>(file->network.modules.size());
-        QProgressDialog progress("Loading network " + QString::fromStdString(filename), QString(), 0, numModules + 1, SCIRunMainWindow::Instance());
+        QProgressDialog progress("Loading network " + (tempFile ? "" : QString::fromStdString(filename)), QString(), 0, numModules + 1, SCIRunMainWindow::Instance());
         progress.connect(networkEditor_->getNetworkEditorController().get(), SIGNAL(networkDoneLoading(int)), SLOT(setValue(int)));
         progress.setWindowModality(Qt::WindowModal);
         progress.show();
@@ -225,26 +225,34 @@ bool NetworkFileProcessCommand::execute()
       }
       file_ = file;
 
-      QPointF center = findCenterOfNetworkFile(*file);
+      auto center = findCenterOfNetworkFile(*file);
       networkEditor_->centerOn(center);
 
-      GuiLogger::Instance().logInfoStd("File load done (" + filename + ").");
-      SCIRun::Core::setCurrentFileName(filename);
+      if (!tempFile)
+      {
+        GuiLogger::logInfoStd("File load done (" + filename + ").");
+        SCIRun::Core::setCurrentFileName(filename);
+      }
       return true;
     }
-    GuiLogger::Instance().logErrorStd("File load failed (" + filename + "): null xml returned.");
+    GuiLogger::logErrorStd("File load failed (" + filename + "): null xml returned.");
   }
   catch (ExceptionBase& e)
   {
-    GuiLogger::Instance().logErrorStd("File load failed (" + filename + "): exception in load_xml, " + e.what());
+    GuiLogger::logErrorStd("File load failed (" + filename + "): exception in load_xml, " + e.what());
+    if (std::string(e.what()).find("InterfaceWithTetGen"))
+    {
+      QMessageBox::warning(SCIRunMainWindow::Instance(), "TetGen module not found",
+        "TetGen module not found, please rebuild with TetGen enabled or find a TetGen-enabled build.");
+    }
   }
   catch (std::exception& ex)
   {
-    GuiLogger::Instance().logErrorStd("File load failed(" + filename + "): exception in load_xml, " + ex.what());
+    GuiLogger::logErrorStd("File load failed(" + filename + "): exception in load_xml, " + ex.what());
   }
   catch (...)
   {
-    GuiLogger::Instance().logErrorStd("File load failed(" + filename + "): Unknown exception in load_xml.");
+    GuiLogger::logErrorStd("File load failed(" + filename + "): Unknown exception in load_xml.");
   }
   return false;
 }
@@ -256,9 +264,19 @@ int NetworkFileProcessCommand::guiProcess(const NetworkFileHandle& file)
   return static_cast<int>(file->network.modules.size()) + 1;
 }
 
+FileOpenCommand::FileOpenCommand()
+{
+  addParameter(Name("temporaryFile"), false);
+}
+
 NetworkFileHandle FileOpenCommand::processXmlFile(const std::string& filename)
 {
   return XMLSerializer::load_xml<NetworkFile>(filename);
+}
+
+FileImportCommand::FileImportCommand()
+{
+  addParameter(Name("temporaryFile"), false);
 }
 
 NetworkFileHandle FileImportCommand::processXmlFile(const std::string& filename)
@@ -279,40 +297,52 @@ bool RunPythonScriptCommandGui::execute()
 bool SetupDataDirectoryCommandGui::execute()
 {
   auto dir = Application::Instance().parameters()->dataDirectory().get();
-  LOG_DEBUG("Data dir set to: " << dir << std::endl);
+  LOG_DEBUG("Data dir set to: {}", dir.string());
 
   SCIRunMainWindow::Instance()->setDataDirectory(QString::fromStdString(dir.string()));
 
   return true;
 }
 
-NetworkSaveCommand::NetworkSaveCommand()
-{
-  addParameter(Variables::Filename, std::string());
-}
-
 bool NetworkSaveCommand::execute()
 {
   auto filename = get(Variables::Filename).toFilename().string();
-  auto fileNameWithExtension = filename;
-  if (!boost::algorithm::ends_with(fileNameWithExtension, ".srn5"))
-    fileNameWithExtension += ".srn5";
+  auto fileNameWithExtension = saveImpl(filename);
+  if (!fileNameWithExtension.empty())
+  {
+    SCIRunMainWindow::Instance()->setCurrentFile(QString::fromStdString(fileNameWithExtension));
+    SCIRunMainWindow::Instance()->statusBar()->showMessage("File saved: " + QString::fromStdString(filename), 2000);
+    GuiLogger::logInfo("File save done: " + QString::fromStdString(filename));
+    SCIRunMainWindow::Instance()->setWindowModified(false);
+    setCurrentFileName(filename);
 
-  auto file = Application::Instance().controller()->saveNetwork();
-
-  XMLSerializer::save_xml(*file, fileNameWithExtension, "networkFile");
-  SCIRunMainWindow::Instance()->setCurrentFile(QString::fromStdString(fileNameWithExtension));
-
-  SCIRunMainWindow::Instance()->statusBar()->showMessage("File saved: " + QString::fromStdString(filename), 2000);
-  GuiLogger::Instance().logInfo("File save done: " + QString::fromStdString(filename));
-  SCIRunMainWindow::Instance()->setWindowModified(false);
-
-  SCIRun::Core::setCurrentFileName(filename);
-
-  return true;
+    return true;
+  }
+  return false;
 }
 
 NetworkFileProcessCommand::NetworkFileProcessCommand() : networkEditor_(SCIRunMainWindow::Instance()->networkEditor())
 {
-  addParameter(Variables::Filename, std::string());
+}
+
+bool DisableViewScenesCommandGui::execute()
+{
+  SCIRunMainWindow::Instance()->networkEditor()->disableViewScenes();
+  //TODO: hook up enableViewScenes to execution finished
+  return true;
+}
+
+bool ToolkitUnpackerCommand::execute()
+{
+  ToolkitFile toolkit;
+  auto filename = get(Variables::Filename).toFilename();
+  std::ifstream istr(filename.string());
+  toolkit.load(istr);
+
+  auto add = !toolkit.networks.empty();
+  if (add)
+    SCIRunMainWindow::Instance()->addToolkit(QString::fromStdString(filename.leaf().stem().string()),
+      QString::fromStdString(filename.parent_path().string()), toolkit);
+
+  return add;
 }

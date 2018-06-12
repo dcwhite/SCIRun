@@ -31,34 +31,68 @@
 
 #include <QObject>
 #include <QTextStream>
+#include <QProgressBar>
 #ifndef Q_MOC_RUN
 #include <boost/timer.hpp>
 #include <Core/Thread/Mutex.h>
 #endif
 
+class QAction;
+class QWidgetAction;
+class QLabel;
+
 namespace SCIRun {
 namespace Gui {
+
+  //TODO: inject this for proper coloring
+  class NetworkStatus
+  {
+  public:
+    virtual ~NetworkStatus() {}
+    virtual size_t total() const = 0;
+    virtual size_t waiting() const = 0;
+    virtual size_t errored() const = 0;
+    virtual size_t executing() const = 0;
+    virtual size_t nonReexecuted() const = 0;
+    virtual size_t finished() const = 0;
+    virtual size_t unexecuted() const = 0;
+  };
+
+  using NetworkStatusPtr = boost::shared_ptr<NetworkStatus>;
+
+  class SCIRunProgressBar : public QProgressBar
+  {
+    Q_OBJECT
+  public:
+    explicit SCIRunProgressBar(NetworkStatusPtr status, QWidget* parent = nullptr);
+  protected:
+    void paintEvent(QPaintEvent*) override;
+  private:
+    NetworkStatusPtr status_;
+  };
 
 class NetworkExecutionProgressBar : public QObject
 {
   Q_OBJECT
 public:
-  explicit NetworkExecutionProgressBar(QWidget* parent);
+  NetworkExecutionProgressBar(NetworkStatusPtr status, QWidget* parent);
 
-  QList<class QAction*> actions() const;
+  QList<QAction*> mainActions() const;
+  QList<QAction*> advancedActions() const;
 
   public Q_SLOTS:
     void updateTotalModules(size_t count);
     void incrementModulesDone(double execTime, const std::string& moduleId);
     void resetModulesDone();
-    void displayTimingInfo();
+    void displayTimingInfo() const;
 
 private:
-  class QWidgetAction* barAction_;
-  class QProgressBar* progressBar_;
-  class QWidgetAction* counterAction_;
-  class QLabel* counterLabel_;
-  class QAction* timingAction_;
+  NetworkStatusPtr status_;
+  QWidgetAction* barAction_;
+  SCIRunProgressBar* progressBar_;
+  QWidgetAction* counterAction_;
+  QLabel* counterLabel_;
+  QAction* timingAction_;
   size_t numModulesDone_;
   size_t totalModules_;
   double totalExecutionTime_;

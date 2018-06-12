@@ -6,7 +6,7 @@
    Copyright (c) 2015 Scientific Computing and Imaging Institute,
    University of Utah.
 
-   
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -49,24 +49,27 @@ namespace SCIRun {
   namespace Modules {
     namespace BrainStimulator {
 
-class SCISHARE SimulateForwardMagneticFieldModule : public SCIRun::Dataflow::Networks::Module,
+class SCISHARE SimulateForwardMagneticField : public SCIRun::Dataflow::Networks::Module,
   public Has4InputPorts<FieldPortTag, FieldPortTag, FieldPortTag, FieldPortTag>,
   public Has2OutputPorts<FieldPortTag, FieldPortTag>
 {
   public:
-    SimulateForwardMagneticFieldModule();
+    SimulateForwardMagneticField();
 
-    virtual void execute();
-    virtual void setStateDefaults();
+    virtual void execute() override;
+    virtual void setStateDefaults() override;
 
-    INPUT_PORT(0, ElectricField, LegacyField);
-    INPUT_PORT(1, ConductivityTensor, LegacyField);
-    INPUT_PORT(2, DipoleSources, LegacyField);
-    INPUT_PORT(3, DetectorLocations, LegacyField);
-    
-    OUTPUT_PORT(0, MagneticField, LegacyField);
-    OUTPUT_PORT(1, MagneticFieldMagnitudes, LegacyField);
+    INPUT_PORT(0, ElectricField, Field);
+    INPUT_PORT(1, ConductivityTensor, Field);
+    INPUT_PORT(2, DipoleSources, Field);
+    INPUT_PORT(3, DetectorLocations, Field);
 
+    OUTPUT_PORT(0, MagneticField, Field);
+    OUTPUT_PORT(1, MagneticFieldMagnitudes, Field);
+
+    LEGACY_BIOPSE_MODULE
+
+    MODULE_TRAITS_AND_INFO(ModuleHasAlgorithm)
 };
 
 }}}

@@ -29,6 +29,8 @@
 #include <Dataflow/Engine/Scheduler/SchedulerInterfaces.h>
 #include <Dataflow/Network/NetworkInterface.h>
 #include <boost/thread.hpp>
+#include <boost/lambda/core.hpp>
+#include <Core/Logging/Log.h>
 
 using namespace SCIRun::Dataflow::Engine;
 using namespace SCIRun::Dataflow::Networks;
@@ -58,6 +60,7 @@ const ExecutionBounds& ExecutionContext::bounds() const
 
 void ExecutionContext::preexecute()
 {
+  network.setExpandedModuleExecutionState(ModuleExecutionState::NotExecuted, boost::lambda::constant(true));
   network.setModuleExecutionState(ModuleExecutionState::Waiting, additionalFilter);
 }
 
@@ -67,9 +70,13 @@ void WaitsForStartupInitialization::waitForStartupInit(const ExecutableLookup& l
 {
   if (!waitedAlready_ && lookup.containsViewScene())
   {
-    std::cout << "Waiting for rendering system initialization...." << std::endl;
+    logWarning("Waiting for rendering system initialization....");
     boost::this_thread::sleep(boost::posix_time::milliseconds(800));
-    std::cout << "Done waiting." << std::endl;
+    logWarning("Done waiting.");
     waitedAlready_ = true;
+  }
+  else
+  {
+    //logWarning("NOT waiting for init");
   }
 }

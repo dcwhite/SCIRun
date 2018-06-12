@@ -42,18 +42,20 @@ namespace Fields {
     public Has1OutputPort<FieldPortTag>,
     public Core::Thread::Interruptible
   {
+    CONVERTED_VERSION_OF_MODULE(MapFieldDataOntoElems)
+
   public:
     MapFieldDataOntoElements();
 
-    virtual void execute();
-    virtual void setStateDefaults();
+    void execute() override;
+    void setStateDefaults() override;
 
-    INPUT_PORT(0, Source, LegacyField);
-    INPUT_PORT(1, Weights, LegacyField);
-    INPUT_PORT(2, Destination, LegacyField);
-    OUTPUT_PORT(0, OutputField, LegacyField);
+    INPUT_PORT(0, Source, Field);
+    INPUT_PORT(1, Weights, Field);
+    INPUT_PORT(2, Destination, Field);
+    OUTPUT_PORT(0, OutputField, Field);
 
-    static const Dataflow::Networks::ModuleLookupInfo staticInfo_;
+    MODULE_TRAITS_AND_INFO(ModuleHasUIAndAlgorithm)
   };
 
 }}}
