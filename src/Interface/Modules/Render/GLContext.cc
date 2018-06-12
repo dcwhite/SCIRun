@@ -51,6 +51,7 @@ void GLContext::makeCurrent()
 
 void GLContext::swapBuffers()
 {
+	//dummy commit to save this branch in my fork.
   //no longer a function
   //mGLWidget->swapBuffers();
   // qDebug() << "mGLWidget" << mGLWidget;
